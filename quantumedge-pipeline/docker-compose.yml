@@ -1,0 +1,209 @@
+version: '3.8'
+
+services:
+  postgres-timescale:
+    image: timescale/timescaledb:latest-pg15
+    container_name: quantumedge-timescale
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-quantumedge}
+      POSTGRES_USER: ${POSTGRES_USER:-qe_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-qe_pass}
+      # TimescaleDB specific settings
+      TIMESCALEDB_TELEMETRY: "off"
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/01-init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-qe_user} -d ${POSTGRES_DB:-quantumedge}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - quantumedge-network
+    shm_size: 256mb
+
+  redis:
+    image: redis:7-alpine
+    container_name: quantumedge-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - quantumedge-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: quantumedge-grafana
+    environment:
+      # Grafana configuration
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-simple-json-datasource
+      GF_SERVER_ROOT_URL: http://localhost:3000
+      # Database connection for Grafana's own storage (optional)
+      GF_DATABASE_TYPE: postgres
+      GF_DATABASE_HOST: postgres-timescale:5432
+      GF_DATABASE_NAME: ${POSTGRES_DB:-quantumedge}
+      GF_DATABASE_USER: ${POSTGRES_USER:-qe_user}
+      GF_DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-qe_pass}
+      GF_DATABASE_SSL_MODE: disable
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data/grafana:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    depends_on:
+      postgres-timescale:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - quantumedge-network
+    user: "472"  # grafana user
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        PYTHON_VERSION: 3.11
+    container_name: quantumedge-app
+    environment:
+      # Database connection
+      POSTGRES_HOST: postgres-timescale
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-quantumedge}
+      POSTGRES_USER: ${POSTGRES_USER:-qe_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-qe_pass}
+      # Redis connection
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      # Application settings
+      APP_ENV: ${APP_ENV:-development}
+      DEBUG: ${DEBUG:-true}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    env_file:
+      - .env
+    ports:
+      - "${API_PORT:-8000}:8000"
+    volumes:
+      - ./src:/app/src
+      - ./data:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      postgres-timescale:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: >
+      sh -c "
+        echo 'Waiting for database to be ready...' &&
+        python -c 'import time; time.sleep(5)' &&
+        echo 'Starting FastAPI application...' &&
+        uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload --log-level info
+      "
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - quantumedge-network
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        PYTHON_VERSION: 3.11
+    container_name: quantumedge-dashboard
+    environment:
+      POSTGRES_HOST: postgres-timescale
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-quantumedge}
+      POSTGRES_USER: ${POSTGRES_USER:-qe_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-qe_pass}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    env_file:
+      - .env
+    ports:
+      - "${DASHBOARD_PORT:-8501}:8501"
+    volumes:
+      - ./dashboard:/app/dashboard
+      - ./src:/app/src
+      - ./data:/app/data
+    depends_on:
+      app:
+        condition: service_healthy
+    command: >
+      sh -c "
+        echo 'Starting Streamlit dashboard...' &&
+        streamlit run dashboard/app.py --server.port 8501 --server.address 0.0.0.0 --server.headless true
+      "
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - quantumedge-network
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: quantumedge-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    healthcheck:
+      test: ["CMD", "wget", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - quantumedge-network
+
+volumes:
+  redis_data:
+    driver: local
+  prometheus_data:
+    driver: local
+
+networks:
+  quantumedge-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/16
