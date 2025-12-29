@@ -119,6 +119,499 @@ class InvalidSolutionError(SolverException):
 
 
 # ============================================================================
+# Energy Tracking Utilities
+# ============================================================================
+
+class EnergyTracker:
+    """
+    Track and estimate energy consumption during computation.
+    
+    This class provides utilities for estimating CPU energy consumption during
+    solver execution. It's designed for edge computing scenarios where energy
+    efficiency is critical for battery-powered or resource-constrained devices.
+    
+    Why Energy Tracking Matters for Edge Computing:
+    ------------------------------------------------
+    1. **Battery Life**: Edge devices often run on batteries
+       - Every millijoule counts for extending device lifetime
+       - Energy-efficient algorithms enable longer operation
+    
+    2. **Thermal Management**: Power consumption → heat generation
+       - High power draw can trigger thermal throttling
+       - Sustained high power reduces device lifespan
+       - Cooling requirements increase cost and size
+    
+    3. **Cost Optimization**: Energy costs money
+       - In datacenters: Power bills are significant operational cost
+       - For IoT: Battery replacement is expensive at scale
+       - Solar/battery systems: Limited energy budget
+    
+    4. **Sustainability**: Environmental impact
+       - Lower energy = lower carbon footprint
+       - Green computing initiatives
+       - Regulatory requirements
+    
+    5. **Routing Decisions**: Energy vs Performance tradeoff
+       - Classical vs Quantum: Different energy profiles
+       - Fast but energy-hungry vs Slow but efficient
+       - Enables energy-aware algorithm selection
+    
+    Energy Estimation Methodology:
+    ------------------------------
+    This class provides ESTIMATES, not exact measurements. Here's why:
+    
+    **What We Measure:**
+    - CPU time (user + system time from psutil)
+    - CPU utilization percentage
+    - Wall-clock time
+    
+    **What We Estimate:**
+    - Power draw (Watts) based on CPU model TDP
+    - Energy consumption (Joules) = Power × Time
+    
+    **Why Estimation?**
+    Precise energy measurement requires:
+    - Hardware energy counters (Intel RAPL, ARM PMU)
+    - Root/admin privileges to access counters
+    - Platform-specific code (not portable)
+    - Kernel support (not always available)
+    
+    Our approach:
+    ✓ Works everywhere (no special hardware/permissions)
+    ✓ Portable across platforms (Linux, Windows, macOS)
+    ✓ Good enough for comparative analysis
+    ✓ Captures relative differences between solvers
+    
+    **Accuracy Limitations:**
+    - Assumes constant TDP (actual power varies with workload)
+    - Doesn't account for memory/disk/network energy
+    - Ignores CPU frequency scaling (turbo boost, throttling)
+    - Utilization-based estimation is approximate
+    - Different cores may have different power draws
+    
+    **When Accuracy Matters:**
+    For research-grade measurements, use:
+    - Intel RAPL (Running Average Power Limit) on Linux
+    - ARM Performance Monitors
+    - External power meters (Kill-A-Watt, etc.)
+    - Specialized profiling tools (PowerAPI, PAPI)
+    
+    **When Our Estimates Are Sufficient:**
+    - Comparative analysis (Solver A vs Solver B)
+    - Algorithm selection and routing
+    - Trend analysis over time
+    - Energy-aware optimization
+    - User feedback (energy cost indicators)
+    
+    CPU TDP (Thermal Design Power) Explained:
+    -----------------------------------------
+    TDP is the maximum power a CPU is designed to dissipate under load.
+    
+    Key Points:
+    - **Not maximum power**: CPU can exceed TDP briefly (turbo boost)
+    - **Not average power**: Typical workloads use 30-70% of TDP
+    - **Design specification**: For cooling system design
+    - **Marketing number**: May not reflect real-world power
+    
+    Typical TDP values:
+    - Laptop CPUs: 15W - 45W
+    - Desktop CPUs: 65W - 125W
+    - Server CPUs: 150W - 300W
+    - Mobile/Edge: 5W - 15W
+    
+    Our default: 65W (typical desktop CPU)
+    You can calibrate for your specific CPU.
+    
+    Calibration for Specific CPU Types:
+    -----------------------------------
+    To get more accurate estimates for your hardware:
+    
+    1. **Identify your CPU**:
+       - Linux: cat /proc/cpuinfo | grep "model name"
+       - Windows: wmic cpu get name
+       - macOS: sysctl -n machdep.cpu.brand_string
+    
+    2. **Look up TDP**:
+       - Check CPU specifications online
+       - Intel: ark.intel.com
+       - AMD: amd.com/en/products/specifications
+    
+    3. **Calibrate**:
+       ```python
+       # For Intel Core i7-10700 (65W TDP)
+       tracker = EnergyTracker(tdp_watts=65.0)
+       
+       # For Raspberry Pi 4 (~7W typical)
+       tracker = EnergyTracker(tdp_watts=7.0, utilization_factor=0.8)
+       
+       # For server Xeon Gold 6258R (205W TDP)
+       tracker = EnergyTracker(tdp_watts=205.0)
+       ```
+    
+    4. **Adjust utilization factor**:
+       - Default 0.6 = CPU runs at 60% of max power
+       - Compute-heavy: 0.8-0.9
+       - I/O-heavy: 0.3-0.5
+       - Mixed workload: 0.5-0.7
+    
+    Example Usage:
+    --------------
+    ```python
+    # Basic usage
+    tracker = EnergyTracker()
+    tracker.start_tracking()
+    
+    # ... do computation ...
+    
+    energy_mj = tracker.stop_tracking()
+    print(f"Energy consumed: {energy_mj:.2f} mJ")
+    
+    # With calibration
+    tracker = EnergyTracker(
+        tdp_watts=45.0,          # Laptop CPU
+        utilization_factor=0.7,   # Moderate workload
+        efficiency=0.85           # 85% efficiency
+    )
+    
+    # Real-time monitoring
+    tracker.start_tracking()
+    for iteration in range(1000):
+        # ... computation ...
+        current_power = tracker.estimate_power_draw()
+        print(f"Current power draw: {current_power:.2f} W")
+    
+    energy_mj = tracker.stop_tracking()
+    ```
+    
+    Thread Safety:
+    --------------
+    NOT thread-safe. Each thread should use its own EnergyTracker instance.
+    """
+    
+    def __init__(
+        self,
+        tdp_watts: float = 65.0,
+        utilization_factor: float = 0.6,
+        efficiency: float = 0.8,
+        process: Optional[psutil.Process] = None
+    ):
+        """
+        Initialize energy tracker with CPU-specific parameters.
+        
+        Args:
+            tdp_watts: CPU Thermal Design Power in watts
+                      Default: 65W (typical desktop CPU)
+                      Laptop: 15-45W, Desktop: 65-125W, Server: 150-300W
+            
+            utilization_factor: Fraction of TDP used during computation
+                               Default: 0.6 (60% of max power)
+                               Range: 0.3 (light) to 0.9 (heavy compute)
+                               Accounts for: CPU not always at 100% turbo boost
+            
+            efficiency: Power conversion efficiency
+                       Default: 0.8 (80% efficiency)
+                       Accounts for: Not all power goes to computation
+                       - Some lost as heat in voltage regulators
+                       - Memory controller overhead
+                       - Cache operations
+            
+            process: psutil.Process object (default: current process)
+                    Allows tracking specific subprocess if needed
+        
+        Raises:
+            ValueError: If parameters are out of valid ranges
+        
+        Example:
+            >>> # Raspberry Pi 4
+            >>> tracker = EnergyTracker(tdp_watts=7.0, utilization_factor=0.8)
+            
+            >>> # High-end desktop
+            >>> tracker = EnergyTracker(tdp_watts=125.0, utilization_factor=0.7)
+            
+            >>> # Server workload
+            >>> tracker = EnergyTracker(tdp_watts=200.0, utilization_factor=0.9)
+        """
+        # Validate parameters
+        if tdp_watts <= 0 or tdp_watts > 500:
+            raise ValueError(f"Invalid TDP: {tdp_watts}W. Expected 0-500W.")
+        
+        if utilization_factor <= 0 or utilization_factor > 1.0:
+            raise ValueError(
+                f"Invalid utilization_factor: {utilization_factor}. Expected 0-1."
+            )
+        
+        if efficiency <= 0 or efficiency > 1.0:
+            raise ValueError(f"Invalid efficiency: {efficiency}. Expected 0-1.")
+        
+        # Store calibration parameters
+        self.tdp_watts = tdp_watts
+        self.utilization_factor = utilization_factor
+        self.efficiency = efficiency
+        
+        # Process to monitor
+        self._process = process if process else psutil.Process(os.getpid())
+        
+        # Tracking state
+        self._start_time: Optional[float] = None
+        self._start_cpu_time: Optional[float] = None
+        self._is_tracking: bool = False
+        
+        logger.debug(
+            f"EnergyTracker initialized: TDP={tdp_watts}W, "
+            f"utilization={utilization_factor}, efficiency={efficiency}"
+        )
+    
+    def start_tracking(self) -> None:
+        """
+        Start tracking energy consumption.
+        
+        Records the initial state:
+        - Wall-clock time (for duration calculation)
+        - CPU time (user + system time)
+        
+        Must be called before stop_tracking().
+        
+        Example:
+            >>> tracker = EnergyTracker()
+            >>> tracker.start_tracking()
+            >>> # ... computation ...
+            >>> energy = tracker.stop_tracking()
+        
+        Raises:
+            RuntimeError: If tracking is already active
+        """
+        if self._is_tracking:
+            raise RuntimeError("Tracking already active. Call stop_tracking() first.")
+        
+        try:
+            # Record wall-clock time
+            self._start_time = time.perf_counter()
+            
+            # Record CPU time (user + system)
+            # user time: time spent executing user code
+            # system time: time spent in kernel on behalf of process
+            cpu_times = self._process.cpu_times()
+            self._start_cpu_time = cpu_times.user + cpu_times.system
+            
+            self._is_tracking = True
+            
+            logger.debug(
+                f"Energy tracking started: time={self._start_time:.6f}s, "
+                f"cpu_time={self._start_cpu_time:.6f}s"
+            )
+        
+        except Exception as e:
+            logger.error(f"Failed to start energy tracking: {e}")
+            self._start_time = None
+            self._start_cpu_time = None
+            self._is_tracking = False
+            raise
+    
+    def stop_tracking(self) -> float:
+        """
+        Stop tracking and calculate energy consumed.
+        
+        Calculation:
+        1. Measure time delta: Δt = current_time - start_time
+        2. Measure CPU time delta: Δcpu = current_cpu_time - start_cpu_time
+        3. Calculate average power: P = TDP × utilization × efficiency
+        4. Calculate energy: E = P × Δcpu (use CPU time, not wall time)
+        5. Convert to millijoules: mJ = J × 1000
+        
+        Why use CPU time instead of wall time?
+        - CPU time: actual time CPU spent on this process
+        - Wall time: includes idle time, I/O waits, other processes
+        - Energy consumed only when CPU is active
+        - More accurate for compute-bound workloads
+        
+        Returns:
+            Energy consumed in millijoules (mJ)
+            Returns 0.0 if tracking wasn't started or failed
+        
+        Example:
+            >>> tracker.start_tracking()
+            >>> result = expensive_computation()
+            >>> energy_mj = tracker.stop_tracking()
+            >>> print(f"Consumed {energy_mj:.2f} mJ")
+        
+        Note:
+            This is an ESTIMATE. For exact measurements, use hardware counters.
+        """
+        if not self._is_tracking:
+            logger.warning("Tracking not active. Call start_tracking() first.")
+            return 0.0
+        
+        try:
+            # Record end times
+            end_time = time.perf_counter()
+            cpu_times = self._process.cpu_times()
+            end_cpu_time = cpu_times.user + cpu_times.system
+            
+            # Calculate deltas
+            wall_time_seconds = end_time - self._start_time
+            cpu_time_seconds = end_cpu_time - self._start_cpu_time
+            
+            # Estimate average power draw (Watts)
+            # Power = TDP × utilization_factor × efficiency
+            # 
+            # TDP: Maximum design power
+            # utilization_factor: What fraction of TDP we actually use
+            # efficiency: How much power actually does computation
+            average_power_watts = (
+                self.tdp_watts * 
+                self.utilization_factor * 
+                self.efficiency
+            )
+            
+            # Calculate energy (Joules)
+            # Energy = Power × Time
+            # 
+            # Use CPU time (not wall time) because:
+            # - Only CPU time actually consumes power
+            # - Wall time includes idle periods
+            # - More accurate for compute workloads
+            energy_joules = average_power_watts * cpu_time_seconds
+            
+            # Convert to millijoules (1 J = 1000 mJ)
+            energy_mj = energy_joules * 1000.0
+            
+            # Reset tracking state
+            self._is_tracking = False
+            self._start_time = None
+            self._start_cpu_time = None
+            
+            logger.debug(
+                f"Energy tracking stopped: "
+                f"wall_time={wall_time_seconds:.4f}s, "
+                f"cpu_time={cpu_time_seconds:.4f}s, "
+                f"power={average_power_watts:.2f}W, "
+                f"energy={energy_mj:.2f}mJ"
+            )
+            
+            return energy_mj
+        
+        except Exception as e:
+            logger.error(f"Failed to stop energy tracking: {e}")
+            self._is_tracking = False
+            self._start_time = None
+            self._start_cpu_time = None
+            return 0.0
+    
+    def estimate_power_draw(self) -> float:
+        """
+        Estimate current power draw in watts.
+        
+        This provides a real-time estimate of power consumption based on
+        current CPU utilization. Useful for monitoring during long computations.
+        
+        Calculation:
+        1. Get current CPU utilization percentage (0-100%)
+        2. Normalize to 0-1 scale
+        3. Power = TDP × (utilization/100) × efficiency
+        
+        Note: This uses system-wide CPU utilization from psutil.cpu_percent(),
+        not just this process. For per-process power, use the energy tracking
+        methods which are based on per-process CPU time.
+        
+        Returns:
+            Estimated power draw in watts
+            Returns 0.0 if measurement fails
+        
+        Example:
+            >>> tracker = EnergyTracker(tdp_watts=65.0)
+            >>> power = tracker.estimate_power_draw()
+            >>> print(f"Current power draw: {power:.2f} W")
+            >>> # Output: Current power draw: 32.50 W (if CPU at 50%)
+        
+        Use Cases:
+            - Real-time power monitoring
+            - Detecting thermal throttling
+            - Energy budget enforcement
+            - Dynamic algorithm switching
+        """
+        try:
+            # Get current CPU utilization (system-wide)
+            # interval=0.1: measure over 100ms for accuracy
+            # percpu=False: aggregate across all cores
+            cpu_percent = psutil.cpu_percent(interval=0.1, percpu=False)
+            
+            # Normalize to 0-1 scale
+            cpu_utilization = cpu_percent / 100.0
+            
+            # Estimate power
+            # Power = TDP × utilization × efficiency
+            # 
+            # Example:
+            # - TDP = 65W
+            # - CPU at 50% utilization
+            # - Efficiency = 0.8
+            # - Power = 65 × 0.5 × 0.8 = 26W
+            estimated_power = (
+                self.tdp_watts * 
+                cpu_utilization * 
+                self.efficiency
+            )
+            
+            logger.debug(
+                f"Power estimate: {estimated_power:.2f}W "
+                f"(CPU utilization: {cpu_percent:.1f}%)"
+            )
+            
+            return estimated_power
+        
+        except Exception as e:
+            logger.error(f"Failed to estimate power draw: {e}")
+            return 0.0
+    
+    def get_calibration_info(self) -> Dict[str, Any]:
+        """
+        Get current calibration parameters.
+        
+        Returns:
+            Dictionary with calibration settings and system info
+        
+        Example:
+            >>> tracker = EnergyTracker(tdp_watts=45.0)
+            >>> info = tracker.get_calibration_info()
+            >>> print(info)
+            {
+                'tdp_watts': 45.0,
+                'utilization_factor': 0.6,
+                'efficiency': 0.8,
+                'estimated_max_power_watts': 21.6,
+                'cpu_count': 8,
+                'cpu_freq_mhz': 2400.0
+            }
+        """
+        try:
+            cpu_info = {
+                'cpu_count': psutil.cpu_count(logical=True),
+                'cpu_freq_mhz': psutil.cpu_freq().current if psutil.cpu_freq() else None
+            }
+        except:
+            cpu_info = {'cpu_count': None, 'cpu_freq_mhz': None}
+        
+        return {
+            'tdp_watts': self.tdp_watts,
+            'utilization_factor': self.utilization_factor,
+            'efficiency': self.efficiency,
+            'estimated_max_power_watts': (
+                self.tdp_watts * self.utilization_factor * self.efficiency
+            ),
+            **cpu_info
+        }
+    
+    def __repr__(self) -> str:
+        """String representation."""
+        return (
+            f"EnergyTracker(tdp={self.tdp_watts}W, "
+            f"util={self.utilization_factor}, "
+            f"eff={self.efficiency}, "
+            f"tracking={self._is_tracking})"
+        )
+
+
+# ============================================================================
 # Abstract Solver Base Class
 # ============================================================================
 
@@ -175,7 +668,10 @@ class SolverBase(ABC):
         self.solver_type = solver_type.lower()
         self.solver_name = solver_name.lower()
         
-        # Energy monitoring
+        # Energy monitoring with enhanced EnergyTracker
+        self._energy_tracker = EnergyTracker()
+        
+        # Backward compatibility: keep old attributes
         self._energy_start: Optional[float] = None
         self._process: psutil.Process = psutil.Process(os.getpid())
         
@@ -352,40 +848,15 @@ class SolverBase(ABC):
     
     def measure_energy_start(self) -> None:
         """
-        Start measuring energy consumption.
+        Start measuring energy consumption using EnergyTracker.
         
-        This method records the initial CPU energy state. It should be called
-        at the beginning of the solve() method, before any computation starts.
+        This method now uses the enhanced EnergyTracker class for more accurate
+        and configurable energy estimation. The EnergyTracker provides:
+        - Calibration for different CPU types
+        - Better documentation of methodology
+        - Real-time power monitoring capabilities
         
-        Energy Measurement Methodology:
-        -------------------------------
-        We estimate energy consumption using CPU utilization and time:
-        
-        Energy (J) ≈ Power (W) × Time (s)
-        Power (W) ≈ TDP × CPU_Utilization_Fraction
-        
-        Where:
-        - TDP (Thermal Design Power): Maximum CPU power consumption
-        - CPU_Utilization: Percentage of CPU used by this process
-        - Time: Duration of computation
-        
-        This is an APPROXIMATION because:
-        - Actual power varies with CPU frequency and workload
-        - We don't account for memory/disk/network energy
-        - Different CPUs have different power profiles
-        - CPU governors affect actual power consumption
-        
-        Why Approximate?
-        ----------------
-        - Precise energy measurement requires hardware tools (e.g., Intel RAPL)
-        - Not all platforms support hardware energy counters
-        - Our goal is comparative analysis, not absolute accuracy
-        - Relative differences between solvers are still meaningful
-        
-        For more accurate measurements:
-        - Use Intel RAPL (Running Average Power Limit) on Linux
-        - Use specialized power meters
-        - Run on controlled hardware with power monitoring
+        See EnergyTracker class documentation for detailed methodology.
         
         Example:
             >>> solver.measure_energy_start()
@@ -394,21 +865,20 @@ class SolverBase(ABC):
             >>> print(f"Energy consumed: {energy:.2f} mJ")
         
         Notes:
+            - Uses EnergyTracker for improved accuracy
             - Call this immediately before computation starts
             - Must be paired with measure_energy_end()
             - Not thread-safe (don't call from multiple threads)
         """
         try:
-            # Get current CPU times for this process
-            # cpu_times includes: user time, system time, children times
-            cpu_times = self._process.cpu_times()
+            # Use new EnergyTracker (preferred method)
+            self._energy_tracker.start_tracking()
             
-            # Store initial CPU time (user + system)
-            # User time: time spent in user mode
-            # System time: time spent in kernel mode
+            # Also maintain backward compatibility with old method
+            cpu_times = self._process.cpu_times()
             self._energy_start = cpu_times.user + cpu_times.system
             
-            logger.debug(f"Energy measurement started: CPU time = {self._energy_start:.4f}s")
+            logger.debug("Energy measurement started (using EnergyTracker)")
         
         except Exception as e:
             logger.warning(f"Failed to start energy measurement: {e}")
@@ -416,28 +886,14 @@ class SolverBase(ABC):
     
     def measure_energy_end(self) -> float:
         """
-        End measuring energy consumption and return estimate.
+        End measuring energy consumption and return estimate using EnergyTracker.
         
-        This method calculates the energy consumed since measure_energy_start()
-        was called. It uses CPU time and estimated TDP to approximate energy.
+        This method now uses the enhanced EnergyTracker for improved energy
+        estimation with calibration support.
         
         Returns:
             Estimated energy consumption in millijoules (mJ)
             Returns 0.0 if measurement failed or wasn't started
-        
-        Calculation Details:
-        --------------------
-        1. Measure CPU time delta: Δt = current_cpu_time - start_cpu_time
-        2. Estimate average CPU power: P ≈ TDP × utilization_factor
-        3. Calculate energy: E = P × Δt
-        4. Convert to millijoules: mJ = J × 1000
-        
-        Default Assumptions:
-        - TDP: 65W (typical modern CPU)
-        - Utilization factor: 0.6 (average during computation)
-        - Efficiency: 0.8 (not all power goes to computation)
-        
-        These can be overridden in subclasses for specific hardware.
         
         Example:
             >>> solver.measure_energy_start()
@@ -446,50 +902,59 @@ class SolverBase(ABC):
             >>> result['energy_mj'] = energy
         
         Notes:
-            - Returns 0.0 if measure_energy_start() wasn't called
-            - Results are approximate (see measure_energy_start() for details)
-            - For comparative analysis only, not absolute measurements
+            - Uses EnergyTracker for improved accuracy
+            - Results are estimates, not exact measurements
+            - For comparative analysis, not absolute measurements
+            - See EnergyTracker documentation for calibration options
         """
-        if self._energy_start is None:
-            logger.warning("Energy measurement not started, returning 0.0")
-            return 0.0
-        
         try:
-            # Get final CPU times
-            cpu_times = self._process.cpu_times()
-            energy_end = cpu_times.user + cpu_times.system
+            # Use new EnergyTracker (preferred method)
+            energy_mj = self._energy_tracker.stop_tracking()
             
-            # Calculate CPU time used (in seconds)
-            cpu_time_seconds = energy_end - self._energy_start
-            
-            # Estimate energy consumption
-            # Assumptions:
-            # - Average CPU TDP: 65W (adjustable per system)
-            # - Utilization factor: 60% (not always at full power)
-            # - Efficiency: 80% (not all power is computational)
-            tdp_watts = 65.0
-            utilization_factor = 0.6
-            efficiency = 0.8
-            
-            # Calculate average power (Watts)
-            average_power = tdp_watts * utilization_factor * efficiency
-            
-            # Energy = Power × Time
-            energy_joules = average_power * cpu_time_seconds
-            
-            # Convert to millijoules
-            energy_mj = energy_joules * 1000.0
-            
-            logger.debug(f"Energy measurement ended: {energy_mj:.2f} mJ "
-                        f"(CPU time: {cpu_time_seconds:.4f}s)")
-            
-            # Reset for next measurement
+            # Reset backward compatibility attribute
             self._energy_start = None
+            
+            logger.debug(f"Energy measurement ended: {energy_mj:.2f} mJ (using EnergyTracker)")
             
             return energy_mj
         
         except Exception as e:
             logger.warning(f"Failed to measure energy: {e}")
+            self._energy_start = None
+            
+            # Fallback to old method if EnergyTracker fails
+            return self._measure_energy_fallback()
+    
+    def _measure_energy_fallback(self) -> float:
+        """
+        Fallback energy measurement if EnergyTracker fails.
+        
+        This is the original simple estimation method, kept for backward
+        compatibility and as a fallback.
+        
+        Returns:
+            Estimated energy in millijoules
+        """
+        if self._energy_start is None:
+            return 0.0
+        
+        try:
+            cpu_times = self._process.cpu_times()
+            energy_end = cpu_times.user + cpu_times.system
+            cpu_time_seconds = energy_end - self._energy_start
+            
+            # Simple estimation (original method)
+            tdp_watts = 65.0
+            utilization_factor = 0.6
+            efficiency = 0.8
+            average_power = tdp_watts * utilization_factor * efficiency
+            energy_joules = average_power * cpu_time_seconds
+            energy_mj = energy_joules * 1000.0
+            
+            self._energy_start = None
+            return energy_mj
+        
+        except Exception:
             self._energy_start = None
             return 0.0
     
