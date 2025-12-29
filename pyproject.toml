@@ -2,16 +2,16 @@
 name = "quantumedge-pipeline"
 version = "0.1.0"
 description = "Quantum-Classical Hybrid Pipeline for Edge Computing Optimization"
-authors = ["QuantumEdge Team <team@quantumedge.dev>"]
+authors = ["Francesco Gastaldello"]
 readme = "README.md"
 license = "MIT"
 packages = [{include = "src"}]
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = ">=3.10,<4.0"
 fastapi = "^0.109.0"
 uvicorn = {extras = ["standard"], version = "^0.27.0"}
-streamlit = "^1.31.0"
+streamlit = "^1.30.0"
 pydantic = "^2.6.0"
 pydantic-settings = "^2.1.0"
 numpy = "^1.26.0"
@@ -29,6 +29,7 @@ pandas = "^2.2.0"
 python-dotenv = "^1.0.0"
 httpx = "^0.26.0"
 prometheus-client = "^0.19.0"
+matplotlib = "^3.8.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"

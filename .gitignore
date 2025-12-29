@@ -106,3 +106,6 @@ monitoring_data/
 docs/_build/
 docs/.doctrees/
 site/
+
+# Validation Scripts
+validation.py
