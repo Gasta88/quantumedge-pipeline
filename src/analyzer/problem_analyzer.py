@@ -769,3 +769,847 @@ class ProblemAnalyzer:
             'classical_score': classical_score,
             'quantum_score': quantum_score
         }
+    
+    # =========================================================================
+    # Public Utility Methods
+    # =========================================================================
+    
+    def calculate_problem_hardness(self, problem: ProblemBase) -> str:
+        """
+        Calculate overall problem hardness level as a simple categorical rating.
+        
+        Problem hardness is a combination of multiple factors that affect how
+        difficult it is to find optimal or near-optimal solutions. This method
+        provides a simple 3-level categorization useful for high-level routing
+        decisions and resource allocation.
+        
+        Hardness Factors Considered:
+        -----------------------------
+        
+        1. **Problem Size** (Primary Factor):
+           - Size determines the search space exponentially: 2^n for binary problems
+           - Small problems (n≤20): Can often solve exactly
+           - Medium problems (20<n≤50): Need approximations
+           - Large problems (n>50): Require heuristics
+        
+        2. **Graph Structure Complexity** (for graph-based problems):
+           - Density: Dense graphs have more interactions → harder
+           - Clustering: High clustering can be exploited → easier
+           - Diameter: Large diameter means information flows slowly → harder
+           - Average degree: High degree means more constraints → harder
+        
+        3. **Known Complexity Class**:
+           - P: Polynomial algorithms exist → easier
+           - NP: Solution verification is polynomial, but finding is hard
+           - NP-hard/NP-complete: No known polynomial solutions → harder
+        
+        Hardness Categories:
+        -------------------
+        - **'easy'**: Can likely solve to optimality quickly
+          * Small size (≤20 variables)
+          * OR: Polynomial complexity class
+          * OR: Simple structure (low density, small diameter)
+        
+        - **'medium'**: Need approximation algorithms, moderate resources
+          * Medium size (20-50 variables)
+          * NP-hard but manageable structure
+          * Can get good approximate solutions
+        
+        - **'hard'**: Very challenging, may not find optimal solution
+          * Large size (>50 variables)
+          * Dense, complex structure
+          * NP-hard with no special structure to exploit
+        
+        Args:
+            problem: Problem instance to evaluate hardness for
+        
+        Returns:
+            Hardness level: 'easy', 'medium', or 'hard'
+        
+        Raises:
+            ValueError: If problem is not generated
+        
+        Example:
+            >>> problem = MaxCutProblem(num_nodes=15)
+            >>> problem.generate(edge_probability=0.3)
+            >>> analyzer = ProblemAnalyzer()
+            >>> hardness = analyzer.calculate_problem_hardness(problem)
+            >>> print(f"Problem hardness: {hardness}")  # 'easy'
+            >>> 
+            >>> # Use for resource allocation
+            >>> if hardness == 'hard':
+            ...     allocate_more_time_and_resources()
+        
+        Mathematical Intuition:
+        ----------------------
+        The hardness scoring uses a point system:
+        - Start with base score = 0
+        - Add points for factors that increase difficulty
+        - Subtract points for factors that decrease difficulty
+        - Map final score to categories: <3='easy', 3-6='medium', >6='hard'
+        
+        This approach is interpretable and can be easily tuned based on
+        empirical performance data.
+        """
+        if not problem.is_generated:
+            raise ValueError("Problem must be generated before hardness calculation")
+        
+        logger.debug(f"Calculating hardness for {problem}")
+        
+        # Initialize hardness score (higher = harder)
+        hardness_score = 0
+        
+        size = problem.problem_size
+        complexity_class = problem.complexity_class.lower()
+        
+        # Factor 1: Problem Size
+        # This is the most important factor as search space grows exponentially
+        # Small problems can often be solved exactly, large problems require heuristics
+        if size <= 10:
+            hardness_score += 0  # Very small, easy to solve
+        elif size <= 20:
+            hardness_score += 2  # Small, manageable
+        elif size <= 50:
+            hardness_score += 4  # Medium, need good algorithms
+        elif size <= 100:
+            hardness_score += 6  # Large, challenging
+        else:
+            hardness_score += 8  # Very large, very hard
+        
+        logger.debug(f"After size factor (size={size}): score={hardness_score}")
+        
+        # Factor 2: Complexity Class
+        # Theoretical complexity gives us bounds on best possible algorithms
+        # P problems have polynomial algorithms, NP-hard may not
+        if complexity_class == 'p':
+            hardness_score -= 2  # Efficient algorithms exist
+        elif 'np-hard' in complexity_class or 'np-complete' in complexity_class:
+            hardness_score += 2  # No known efficient algorithms
+        elif 'np' in complexity_class:
+            hardness_score += 1  # Difficult but not worst-case
+        
+        logger.debug(f"After complexity factor (class={complexity_class}): score={hardness_score}")
+        
+        # Factor 3: Graph Structure (if applicable)
+        # Certain graph structures are easier to solve despite large size
+        try:
+            graph = problem.to_graph()
+            
+            # Density: More edges = more interactions = harder
+            # Sparse graphs (density < 0.3) are generally easier
+            # Dense graphs (density > 0.7) are harder due to many constraints
+            density = nx.density(graph)
+            if density < 0.2:
+                hardness_score -= 1  # Very sparse, easier
+            elif density > 0.7:
+                hardness_score += 2  # Dense, many interactions
+            
+            logger.debug(f"After density factor (density={density:.3f}): score={hardness_score}")
+            
+            # Clustering: High clustering means local structure exists
+            # Algorithms can exploit this locality for efficiency
+            try:
+                clustering = nx.average_clustering(graph)
+                if clustering > 0.6:
+                    hardness_score -= 1  # High clustering, easier to decompose
+            except:
+                pass
+            
+            # Average degree: High degree means more constraints per variable
+            # More constraints generally makes problems harder
+            if graph.number_of_nodes() > 0:
+                avg_degree = sum(d for _, d in graph.degree()) / graph.number_of_nodes()
+                if avg_degree > size * 0.5:
+                    hardness_score += 1  # Very connected, harder
+            
+            # Diameter: Large diameter means information propagates slowly
+            # Can affect convergence of iterative algorithms
+            # Only compute for small graphs (expensive operation)
+            if graph.number_of_nodes() <= 50:
+                try:
+                    if nx.is_connected(graph):
+                        diameter = nx.diameter(graph)
+                        if diameter > size * 0.3:
+                            hardness_score += 1  # Large diameter, harder
+                except:
+                    pass
+            
+            logger.debug(f"After graph structure factors: score={hardness_score}")
+        
+        except Exception as e:
+            logger.debug(f"Could not analyze graph structure: {e}")
+        
+        # Map score to categories
+        # Thresholds chosen based on typical problem characteristics
+        # Can be tuned based on empirical solver performance
+        if hardness_score <= 2:
+            hardness = 'easy'
+        elif hardness_score <= 6:
+            hardness = 'medium'
+        else:
+            hardness = 'hard'
+        
+        logger.info(f"Problem hardness: {hardness} (score={hardness_score})")
+        
+        return hardness
+    
+    def estimate_solution_space_size(self, problem: ProblemBase) -> int:
+        """
+        Estimate the size of the solution space (number of possible solutions).
+        
+        The solution space size is crucial for understanding problem difficulty.
+        It represents the number of distinct solutions that need to be explored
+        (in the worst case) to find the optimal solution.
+        
+        Mathematical Background:
+        ------------------------
+        
+        For **Binary Optimization Problems** (MaxCut, Binary Portfolio, etc.):
+        - Each variable can be 0 or 1
+        - n variables → 2^n possible assignments
+        - Example: 10 variables → 2^10 = 1,024 solutions
+        - Example: 50 variables → 2^50 ≈ 1.1 × 10^15 solutions (quadrillion!)
+        
+        For **Permutation Problems** (TSP):
+        - n cities can be arranged in n! (factorial) ways
+        - However, TSP tours are circular, so divide by n (rotations)
+        - Also symmetric (clockwise = counterclockwise), so divide by 2
+        - Effective space: n! / (2n) = (n-1)! / 2
+        - Example: 10 cities → 9!/2 = 181,440 tours
+        - Example: 20 cities → 19!/2 ≈ 6.1 × 10^16 tours
+        
+        For **Continuous/Mixed Problems** (Continuous Portfolio):
+        - Technically infinite solution space
+        - Return -1 to indicate continuous space
+        - These problems use different solution methods (convex optimization)
+        
+        Why This Matters:
+        -----------------
+        - **Exhaustive Search**: Not feasible for large spaces
+          * 2^50 solutions would take millennia to enumerate
+        - **Sampling**: Can only sample tiny fraction of space
+          * Random sampling becomes ineffective
+        - **Algorithm Selection**: Affects which algorithms work
+          * Small spaces: Exhaustive or branch-and-bound
+          * Large spaces: Heuristics, metaheuristics, or quantum
+        - **Quantum Advantage**: Quantum algorithms can search exponentially
+          large spaces more efficiently (Grover's algorithm: O(√N) vs O(N))
+        
+        Args:
+            problem: Problem instance to estimate space size for
+        
+        Returns:
+            Number of possible solutions (int)
+            - Returns -1 for continuous problems (infinite space)
+            - For very large spaces, returns sys.maxsize (overflow protection)
+        
+        Raises:
+            ValueError: If problem is not generated
+        
+        Example:
+            >>> problem = MaxCutProblem(num_nodes=20)
+            >>> problem.generate()
+            >>> analyzer = ProblemAnalyzer()
+            >>> space_size = analyzer.estimate_solution_space_size(problem)
+            >>> print(f"Solution space size: {space_size:,}")  # 1,048,576
+            >>> print(f"That's 2^{problem.problem_size}")
+            >>> 
+            >>> # Compare with TSP
+            >>> tsp = TSPProblem(num_cities=20)
+            >>> tsp.generate()
+            >>> tsp_space = analyzer.estimate_solution_space_size(tsp)
+            >>> print(f"TSP space: {tsp_space:,}")  # Much larger!
+        
+        Computational Note:
+        -------------------
+        For very large problems, 2^n or n! can overflow. We use arbitrary
+        precision for accurate calculation up to Python's integer limits.
+        For display purposes, use scientific notation for huge numbers.
+        """
+        if not problem.is_generated:
+            raise ValueError("Problem must be generated before space size estimation")
+        
+        problem_type = problem.problem_type.lower()
+        size = problem.problem_size
+        
+        logger.debug(f"Estimating solution space size for {problem_type} problem of size {size}")
+        
+        # Binary optimization problems: 2^n solutions
+        # Each of n variables can be 0 or 1, giving 2^n combinations
+        if problem_type in ['maxcut', 'sat', 'graph_coloring']:
+            # Calculate 2^n
+            # For large n, this can be huge (2^100 ≈ 10^30)
+            try:
+                space_size = 2 ** size
+                logger.debug(f"Binary problem: 2^{size} = {space_size}")
+            except OverflowError:
+                # If somehow overflow (shouldn't happen with Python's arbitrary precision)
+                import sys
+                space_size = sys.maxsize
+                logger.warning(f"Solution space overflow, returning maxsize")
+            
+            return space_size
+        
+        # Permutation problems (TSP): (n-1)!/2 distinct tours
+        # n! ways to arrange n items
+        # Divide by n (circular rotations are same tour)
+        # Divide by 2 (clockwise/counterclockwise are same)
+        # Result: n!/(2n) = (n-1)!/2
+        elif problem_type == 'tsp':
+            if size <= 1:
+                return 1
+            
+            # Calculate (n-1)! / 2
+            # Use factorial from math library
+            import math
+            try:
+                # (n-1)! can get extremely large
+                # 20! = 2,432,902,008,176,640,000
+                # 100! ≈ 10^157 (more atoms than in universe!)
+                factorial = math.factorial(size - 1)
+                space_size = factorial // 2  # Integer division
+                logger.debug(f"TSP: ({size}-1)!/2 = {factorial}/2 = {space_size}")
+            except (OverflowError, ValueError):
+                import sys
+                space_size = sys.maxsize
+                logger.warning(f"TSP space size overflow for size={size}")
+            
+            return space_size
+        
+        # Portfolio optimization: depends on constraints
+        # If binary (asset selection): 2^n
+        # If continuous (weight allocation): infinite (return -1)
+        elif problem_type == 'portfolio':
+            # Check if problem has discrete or continuous variables
+            # For now, assume binary (asset selection problem)
+            # If it's continuous allocation, it would be indicated in problem metadata
+            
+            # Try to determine from problem structure
+            # Most portfolio problems are continuous, so default to -1
+            try:
+                # If QUBO exists, it's binary
+                qubo = problem.to_qubo()
+                space_size = 2 ** size
+                logger.debug(f"Binary portfolio: 2^{size} = {space_size}")
+            except:
+                # Continuous space
+                space_size = -1
+                logger.debug(f"Continuous portfolio: infinite solution space")
+            
+            return space_size
+        
+        # Unknown problem type: assume binary as safe default
+        else:
+            logger.warning(f"Unknown problem type '{problem_type}', assuming binary")
+            try:
+                space_size = 2 ** size
+                logger.debug(f"Default binary: 2^{size} = {space_size}")
+            except OverflowError:
+                import sys
+                space_size = sys.maxsize
+            
+            return space_size
+    
+    def identify_problem_structure(self, problem: ProblemBase) -> Dict[str, Any]:
+        """
+        Identify special structural properties of the problem.
+        
+        Certain graph structures have special properties that can be exploited
+        by specialized algorithms, making problems easier to solve despite
+        their theoretical complexity. This method detects these structures.
+        
+        Special Structures Detected:
+        ----------------------------
+        
+        1. **Planar Graphs**:
+           - Can be drawn on a plane without edge crossings
+           - Many NP-hard problems become polynomial on planar graphs
+           - Examples: Grid graphs, trees, outerplanar graphs
+           - MaxCut on planar graphs has better approximation algorithms
+           - Why it matters: Can use specialized planar graph algorithms
+        
+        2. **Bipartite Graphs**:
+           - Nodes can be divided into two sets with edges only between sets
+           - Many problems become easier (e.g., matching, vertex cover)
+           - Can be checked in linear time using BFS/DFS coloring
+           - MaxCut on bipartite graphs is polynomial! (not NP-hard)
+           - Why it matters: Can solve optimally with efficient algorithms
+        
+        3. **Community Structure** (Modularity):
+           - Graph has densely connected clusters with sparse inter-cluster edges
+           - Real-world networks often have this structure (social, biological)
+           - Can use divide-and-conquer approaches
+           - Modularity score > 0.3 indicates strong communities
+           - Why it matters: Can decompose problem into smaller subproblems
+        
+        4. **Tree Structure**:
+           - Connected graph with no cycles (n nodes, n-1 edges)
+           - Many NP-hard problems become polynomial on trees
+           - Dynamic programming works efficiently on trees
+           - Why it matters: Can use tree DP algorithms
+        
+        5. **Regular Graphs**:
+           - All nodes have the same degree
+           - Symmetric structure, easier to analyze
+           - Examples: Cycle graphs, complete graphs, k-regular graphs
+        
+        Mathematical Details:
+        ---------------------
+        
+        **Planarity Testing**:
+        - Uses Kuratowski's theorem or Boyer-Myrvold algorithm
+        - Time complexity: O(n) linear in graph size
+        - NetworkX implementation: nx.check_planarity()
+        
+        **Bipartiteness Testing**:
+        - Attempts to 2-color the graph using BFS
+        - If successful → bipartite, if conflict → not bipartite
+        - Time complexity: O(n + m) where m = edges
+        - NetworkX implementation: nx.is_bipartite()
+        
+        **Community Detection** (Modularity):
+        - Modularity Q = (1/2m) Σ[Aᵢⱼ - kᵢkⱼ/2m]δ(cᵢ,cⱼ)
+        - Where: Aᵢⱼ = adjacency matrix, kᵢ = degree of i
+        - Q > 0.3: Strong community structure
+        - Q > 0.7: Very strong community structure
+        - Uses Louvain algorithm (greedy optimization)
+        
+        Args:
+            problem: Problem instance to analyze structure for
+        
+        Returns:
+            Dictionary containing:
+            {
+                'is_planar': bool,          # Can be drawn without crossings
+                'is_bipartite': bool,       # Two-colorable
+                'is_tree': bool,            # Connected acyclic
+                'is_regular': bool,         # All nodes same degree
+                'has_communities': bool,    # Strong community structure
+                'modularity': float or None,  # Community strength (0-1)
+                'num_components': int,      # Number of connected components
+                'structure_notes': List[str]  # Human-readable observations
+            }
+        
+        Raises:
+            ValueError: If problem is not generated
+        
+        Example:
+            >>> problem = MaxCutProblem(num_nodes=20)
+            >>> problem.generate(edge_probability=0.2)
+            >>> analyzer = ProblemAnalyzer()
+            >>> structure = analyzer.identify_problem_structure(problem)
+            >>> 
+            >>> if structure['is_bipartite']:
+            ...     print("Bipartite! Can solve optimally in polynomial time!")
+            >>> if structure['has_communities']:
+            ...     print(f"Has communities (modularity={structure['modularity']:.2f})")
+            ...     print("Can use divide-and-conquer approach")
+            >>> 
+            >>> print("Structure notes:")
+            >>> for note in structure['structure_notes']:
+            ...     print(f"  - {note}")
+        
+        Performance Notes:
+        ------------------
+        - Planarity testing: O(n) but with high constant
+        - Bipartite testing: O(n + m) very fast
+        - Community detection: O(n log n) with Louvain
+        - For large graphs (n > 1000), some tests may be slow
+        """
+        if not problem.is_generated:
+            raise ValueError("Problem must be generated before structure identification")
+        
+        logger.debug(f"Identifying structural properties of {problem}")
+        
+        # Initialize results dictionary
+        structure = {
+            'is_planar': False,
+            'is_bipartite': False,
+            'is_tree': False,
+            'is_regular': False,
+            'has_communities': False,
+            'modularity': None,
+            'num_components': 0,
+            'structure_notes': []
+        }
+        
+        # Try to get graph representation
+        # Not all problems have meaningful graph representations
+        try:
+            graph = problem.to_graph()
+        except Exception as e:
+            logger.warning(f"Could not get graph representation: {e}")
+            structure['structure_notes'].append("Not a graph-based problem")
+            return structure
+        
+        # Basic graph properties
+        n = graph.number_of_nodes()
+        m = graph.number_of_edges()
+        
+        if n == 0:
+            structure['structure_notes'].append("Empty graph")
+            return structure
+        
+        logger.debug(f"Graph has {n} nodes and {m} edges")
+        
+        # Check 1: Connected Components
+        # Number of disconnected parts of the graph
+        # Can solve each component independently (divide and conquer!)
+        if graph.is_directed():
+            num_components = nx.number_weakly_connected_components(graph)
+        else:
+            num_components = nx.number_connected_components(graph)
+        
+        structure['num_components'] = num_components
+        
+        if num_components > 1:
+            structure['structure_notes'].append(
+                f"Graph has {num_components} components - can solve independently"
+            )
+            logger.debug(f"Graph is disconnected: {num_components} components")
+        
+        # For remaining tests, work with largest component if disconnected
+        if num_components > 1 and not graph.is_directed():
+            # Get largest connected component for further analysis
+            largest_cc = max(nx.connected_components(graph), key=len)
+            graph_to_analyze = graph.subgraph(largest_cc).copy()
+            logger.debug(f"Using largest component with {graph_to_analyze.number_of_nodes()} nodes")
+        else:
+            graph_to_analyze = graph
+        
+        # Check 2: Bipartiteness
+        # Can we 2-color the graph? (nodes in two sets, edges only between sets)
+        # IMPORTANT: MaxCut on bipartite graphs is in P (polynomial time)!
+        try:
+            is_bipartite = nx.is_bipartite(graph_to_analyze)
+            structure['is_bipartite'] = is_bipartite
+            
+            if is_bipartite:
+                structure['structure_notes'].append(
+                    "Bipartite structure detected - many NP-hard problems become polynomial!"
+                )
+                logger.info("Graph is BIPARTITE - special algorithms available")
+        except Exception as e:
+            logger.debug(f"Could not check bipartiteness: {e}")
+        
+        # Check 3: Tree Structure
+        # Trees are connected acyclic graphs: n nodes, n-1 edges
+        # Many NP-hard problems become polynomial on trees (tree DP)
+        if num_components == 1:
+            is_tree = nx.is_tree(graph_to_analyze)
+            structure['is_tree'] = is_tree
+            
+            if is_tree:
+                structure['structure_notes'].append(
+                    "Tree structure - can use dynamic programming on trees"
+                )
+                logger.info("Graph is a TREE - many efficient algorithms available")
+        
+        # Check 4: Planarity
+        # Can graph be drawn on plane without edge crossings?
+        # Many problems have better algorithms on planar graphs
+        # Note: Expensive for large graphs, so limit size
+        if n <= 1000:  # Planarity testing can be slow for very large graphs
+            try:
+                is_planar, _ = nx.check_planarity(graph_to_analyze)
+                structure['is_planar'] = is_planar
+                
+                if is_planar:
+                    structure['structure_notes'].append(
+                        "Planar graph - specialized planar algorithms available"
+                    )
+                    logger.info("Graph is PLANAR")
+            except Exception as e:
+                logger.debug(f"Could not check planarity: {e}")
+        else:
+            logger.debug(f"Skipping planarity check for large graph (n={n})")
+        
+        # Check 5: Regularity
+        # Are all nodes of the same degree? (symmetric structure)
+        # Regular graphs have nice mathematical properties
+        try:
+            degrees = [d for _, d in graph_to_analyze.degree()]
+            if len(degrees) > 0 and len(set(degrees)) == 1:
+                structure['is_regular'] = True
+                structure['structure_notes'].append(
+                    f"Regular graph (all nodes have degree {degrees[0]})"
+                )
+                logger.info(f"Graph is {degrees[0]}-REGULAR")
+        except Exception as e:
+            logger.debug(f"Could not check regularity: {e}")
+        
+        # Check 6: Community Structure (Modularity)
+        # Does graph have densely connected clusters?
+        # High modularity means we can decompose problem
+        # Use Louvain community detection algorithm
+        if n >= 10 and n <= 5000:  # Only for reasonable sizes
+            try:
+                # Import community detection (requires python-louvain or networkx communities)
+                # Try to use greedy modularity communities (built into NetworkX)
+                from networkx.algorithms import community
+                
+                # Find communities using greedy modularity maximization
+                communities_generator = community.greedy_modularity_communities(
+                    graph_to_analyze
+                )
+                communities_list = list(communities_generator)
+                
+                # Calculate modularity score
+                modularity = community.modularity(graph_to_analyze, communities_list)
+                structure['modularity'] = modularity
+                
+                # Modularity interpretation:
+                # Q < 0.3: Weak or no community structure
+                # 0.3 ≤ Q < 0.5: Moderate community structure
+                # Q ≥ 0.5: Strong community structure
+                # Q > 0.7: Very strong community structure (rare)
+                if modularity > 0.3:
+                    structure['has_communities'] = True
+                    structure['structure_notes'].append(
+                        f"Community structure detected (modularity={modularity:.3f}, "
+                        f"{len(communities_list)} communities) - can use divide-and-conquer"
+                    )
+                    logger.info(f"Strong community structure: modularity={modularity:.3f}")
+                else:
+                    structure['structure_notes'].append(
+                        f"Weak community structure (modularity={modularity:.3f})"
+                    )
+                
+            except Exception as e:
+                logger.debug(f"Could not detect communities: {e}")
+                structure['structure_notes'].append("Community detection not available")
+        else:
+            logger.debug(f"Skipping community detection (n={n} outside range [10, 5000])")
+        
+        # Add general observations
+        density = nx.density(graph_to_analyze)
+        if density < 0.1:
+            structure['structure_notes'].append("Very sparse graph (density < 0.1)")
+        elif density > 0.8:
+            structure['structure_notes'].append("Very dense graph (density > 0.8)")
+        
+        logger.info(f"Structure analysis complete: {len(structure['structure_notes'])} observations")
+        
+        return structure
+    
+    def generate_analysis_report(self, problem: ProblemBase) -> str:
+        """
+        Generate a comprehensive human-readable analysis report.
+        
+        This method combines all analysis functions to create a detailed
+        report suitable for:
+        - Understanding problem characteristics
+        - Making routing decisions
+        - Debugging and development
+        - User feedback and transparency
+        
+        The report includes:
+        - Basic problem information
+        - Size and complexity analysis
+        - Graph structure analysis (if applicable)
+        - Runtime estimates
+        - Solver recommendations
+        - Special structural properties
+        
+        Report Format:
+        --------------
+        The report is formatted as plain text with sections:
+        1. Problem Overview
+        2. Problem Characteristics
+        3. Graph Analysis (if applicable)
+        4. Solution Space Analysis
+        5. Computational Estimates
+        6. Structural Properties
+        7. Recommendations
+        
+        Args:
+            problem: Problem instance to generate report for
+        
+        Returns:
+            Formatted analysis report as string
+        
+        Raises:
+            ValueError: If problem is not generated
+        
+        Example:
+            >>> problem = MaxCutProblem(num_nodes=30)
+            >>> problem.generate(edge_probability=0.3)
+            >>> analyzer = ProblemAnalyzer()
+            >>> report = analyzer.generate_analysis_report(problem)
+            >>> print(report)
+            
+            ================================================================================
+            PROBLEM ANALYSIS REPORT
+            ================================================================================
+            
+            PROBLEM OVERVIEW
+            ----------------
+            Problem Type: maxcut
+            Problem Size: 30 variables
+            Complexity Class: NP-hard
+            ...
+        
+        Use Cases:
+        ----------
+        1. **Debugging**: Understand why router made certain decision
+        2. **User Interface**: Show analysis to users
+        3. **Logging**: Record problem characteristics for later analysis
+        4. **Research**: Document problem instances in papers
+        """
+        if not problem.is_generated:
+            raise ValueError("Problem must be generated before report generation")
+        
+        logger.info(f"Generating analysis report for {problem}")
+        
+        # Collect all analysis data
+        analysis = self.analyze_problem(problem)
+        hardness = self.calculate_problem_hardness(problem)
+        space_size = self.estimate_solution_space_size(problem)
+        structure = self.identify_problem_structure(problem)
+        
+        # Build report sections
+        report_lines = []
+        
+        # Header
+        report_lines.append("=" * 80)
+        report_lines.append("PROBLEM ANALYSIS REPORT")
+        report_lines.append("=" * 80)
+        report_lines.append("")
+        
+        # Section 1: Problem Overview
+        report_lines.append("PROBLEM OVERVIEW")
+        report_lines.append("-" * 80)
+        report_lines.append(f"Problem Type: {analysis['problem_type']}")
+        report_lines.append(f"Problem Size: {analysis['problem_size']} variables")
+        report_lines.append(f"Complexity Class: {problem.complexity_class}")
+        report_lines.append(f"Problem Hardness: {hardness.upper()}")
+        report_lines.append("")
+        
+        # Section 2: Solution Space
+        report_lines.append("SOLUTION SPACE ANALYSIS")
+        report_lines.append("-" * 80)
+        if space_size == -1:
+            report_lines.append("Solution Space: Continuous (infinite)")
+        else:
+            # Format large numbers with scientific notation if needed
+            if space_size > 1e15:
+                report_lines.append(f"Solution Space Size: {space_size:.2e} possible solutions")
+            else:
+                report_lines.append(f"Solution Space Size: {space_size:,} possible solutions")
+            
+            # Add intuitive explanation
+            if space_size < 1e6:
+                report_lines.append("  → Small space: Exhaustive search may be feasible")
+            elif space_size < 1e12:
+                report_lines.append("  → Medium space: Need smart search strategies")
+            else:
+                report_lines.append("  → Huge space: Only tiny fraction can be explored")
+        report_lines.append("")
+        
+        # Section 3: Graph Analysis (if available)
+        if analysis['graph_features']:
+            report_lines.append("GRAPH STRUCTURE ANALYSIS")
+            report_lines.append("-" * 80)
+            gf = analysis['graph_features']
+            report_lines.append(f"Graph Density: {gf['density']:.3f}")
+            report_lines.append(f"Clustering Coefficient: {gf['clustering_coefficient']:.3f}")
+            report_lines.append(f"Average Degree: {gf['average_degree']:.2f}")
+            if gf['diameter'] is not None:
+                report_lines.append(f"Graph Diameter: {gf['diameter']}")
+            else:
+                report_lines.append("Graph Diameter: Not computed (too expensive or disconnected)")
+            report_lines.append("")
+        
+        # Section 4: Structural Properties
+        report_lines.append("STRUCTURAL PROPERTIES")
+        report_lines.append("-" * 80)
+        report_lines.append(f"Connected Components: {structure['num_components']}")
+        report_lines.append(f"Bipartite: {'Yes' if structure['is_bipartite'] else 'No'}")
+        report_lines.append(f"Tree Structure: {'Yes' if structure['is_tree'] else 'No'}")
+        report_lines.append(f"Planar: {'Yes' if structure['is_planar'] else 'No'}")
+        report_lines.append(f"Regular: {'Yes' if structure['is_regular'] else 'No'}")
+        if structure['modularity'] is not None:
+            report_lines.append(f"Community Structure: {'Yes' if structure['has_communities'] else 'No'} "
+                              f"(modularity={structure['modularity']:.3f})")
+        
+        if structure['structure_notes']:
+            report_lines.append("")
+            report_lines.append("Structure Notes:")
+            for note in structure['structure_notes']:
+                report_lines.append(f"  • {note}")
+        report_lines.append("")
+        
+        # Section 5: Computational Estimates
+        report_lines.append("COMPUTATIONAL ESTIMATES")
+        report_lines.append("-" * 80)
+        report_lines.append(f"Estimated Classical Runtime: {analysis['estimated_classical_runtime']:.4f} seconds")
+        report_lines.append(f"Estimated Quantum Runtime: {analysis['estimated_quantum_runtime']:.4f} seconds")
+        
+        speedup_factor = (analysis['estimated_classical_runtime'] / 
+                         analysis['estimated_quantum_runtime'] 
+                         if analysis['estimated_quantum_runtime'] > 0 else float('inf'))
+        report_lines.append(f"Speedup Factor: {speedup_factor:.2f}x")
+        report_lines.append("")
+        
+        # Section 6: Solver Suitability
+        report_lines.append("SOLVER SUITABILITY SCORES")
+        report_lines.append("-" * 80)
+        classical_score = analysis['suitability_scores']['classical_score']
+        quantum_score = analysis['suitability_scores']['quantum_score']
+        
+        report_lines.append(f"Classical Solver Score: {classical_score:.2f} / 1.00")
+        report_lines.append(f"Quantum Solver Score: {quantum_score:.2f} / 1.00")
+        report_lines.append(f"Quantum Advantage Probability: {analysis['quantum_advantage_probability']:.1%}")
+        report_lines.append("")
+        
+        # Section 7: Recommendations
+        report_lines.append("RECOMMENDATIONS")
+        report_lines.append("-" * 80)
+        
+        # Determine recommendation based on scores and analysis
+        if structure['is_bipartite'] and analysis['problem_type'] == 'maxcut':
+            report_lines.append("✓ RECOMMENDED: Classical Solver (Bipartite MaxCut is polynomial)")
+            report_lines.append("  Reasoning: Bipartite MaxCut can be solved optimally in polynomial time.")
+        elif structure['is_tree']:
+            report_lines.append("✓ RECOMMENDED: Classical Solver (Tree DP is efficient)")
+            report_lines.append("  Reasoning: Many problems on trees have efficient dynamic programming solutions.")
+        elif quantum_score > classical_score + 0.2:
+            report_lines.append("✓ RECOMMENDED: Quantum Solver")
+            report_lines.append(f"  Reasoning: Quantum score ({quantum_score:.2f}) significantly higher than "
+                              f"classical ({classical_score:.2f}).")
+            report_lines.append(f"  Quantum advantage probability: {analysis['quantum_advantage_probability']:.1%}")
+        elif classical_score > quantum_score + 0.2:
+            report_lines.append("✓ RECOMMENDED: Classical Solver")
+            report_lines.append(f"  Reasoning: Classical score ({classical_score:.2f}) significantly higher than "
+                              f"quantum ({quantum_score:.2f}).")
+        else:
+            report_lines.append("✓ RECOMMENDED: Hybrid Approach")
+            report_lines.append(f"  Reasoning: Scores are close (classical={classical_score:.2f}, "
+                              f"quantum={quantum_score:.2f}).")
+            report_lines.append("  Consider running both solvers in parallel or using quantum for initial solution.")
+        
+        # Add specific notes based on hardness
+        if hardness == 'hard':
+            report_lines.append("")
+            report_lines.append("⚠ WARNING: This is a HARD problem instance.")
+            report_lines.append("  • May require significant computational resources")
+            report_lines.append("  • Consider using heuristics or approximation algorithms")
+            report_lines.append("  • Optimal solution may not be found in reasonable time")
+        elif hardness == 'easy':
+            report_lines.append("")
+            report_lines.append("✓ NOTE: This is an EASY problem instance.")
+            report_lines.append("  • Can likely solve to optimality quickly")
+            report_lines.append("  • Exact algorithms should work well")
+        
+        # Footer
+        report_lines.append("")
+        report_lines.append("=" * 80)
+        report_lines.append("END OF REPORT")
+        report_lines.append("=" * 80)
+        
+        # Join all lines
+        report = "\n".join(report_lines)
+        
+        logger.info("Analysis report generated successfully")
+        
+        return report
