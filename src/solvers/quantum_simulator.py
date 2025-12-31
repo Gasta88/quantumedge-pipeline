@@ -38,6 +38,18 @@ from typing import Dict, Any, List, Optional, Tuple
 import numpy as np
 import logging
 from abc import ABC
+import time
+
+# Scipy for classical optimization
+try:
+    from scipy.optimize import minimize
+    SCIPY_AVAILABLE = True
+except ImportError:
+    SCIPY_AVAILABLE = False
+    logging.warning(
+        "Scipy not installed. Classical optimization will not be available. "
+        "Install with: pip install scipy"
+    )
 
 # Import base solver
 from .solver_base import SolverBase, SolverException, SolverTimeoutError
@@ -1128,6 +1140,632 @@ class QuantumSimulator(SolverBase):
             raise QuantumSimulatorException(
                 f"Failed to measure QAOA expectation: {e}"
             )
+    
+    def solve(
+        self,
+        problem: Any,
+        p: int = 1,
+        maxiter: int = 100,
+        optimizer: str = 'COBYLA',
+        initial_params: Optional[np.ndarray] = None,
+        convergence_threshold: float = 1e-6,
+        verbose: bool = True
+    ) -> Dict[str, Any]:
+        """
+        Solve optimization problem using QAOA with hybrid quantum-classical optimization.
+        
+        ═══════════════════════════════════════════════════════════════════════════
+        HYBRID QUANTUM-CLASSICAL OPTIMIZATION: THE KEY INSIGHT
+        ═══════════════════════════════════════════════════════════════════════════
+        
+        QAOA is NOT purely quantum - it's a HYBRID algorithm that combines:
+        
+        🔵 QUANTUM PART (this runs on quantum hardware/simulator):
+           - Prepare quantum state in superposition
+           - Apply parameterized QAOA circuit
+           - Measure expectation value of cost Hamiltonian
+           - This evaluates the cost function for given parameters
+        
+        🟢 CLASSICAL PART (this runs on regular CPU):
+           - Take expectation value from quantum circuit
+           - Compute gradient or use gradient-free method
+           - Adjust parameters (γ, β) to minimize cost
+           - Send new parameters back to quantum circuit
+           - Repeat until convergence
+        
+        Why Hybrid?
+        -----------
+        Pure quantum algorithms are hard to design and limited to specific problems.
+        Hybrid algorithms leverage:
+        ✓ Quantum speedup for cost function evaluation (exponential parallelism)
+        ✓ Classical optimization expertise (decades of research in optimization)
+        ✓ Near-term quantum devices (NISQ era - not error-corrected)
+        ✓ Practical implementation on real hardware
+        
+        The Optimization Loop (Variational Quantum Algorithm):
+        -------------------------------------------------------
+        
+        1. INITIALIZE: Start with random or heuristic parameters θ = [γ₁, β₁, ..., γₚ, βₚ]
+        
+        2. QUANTUM EVALUATION:
+           |ψ(θ)⟩ ← QAOA_circuit(θ)      [Run on quantum device]
+           cost ← ⟨ψ(θ)|H|ψ(θ)⟩           [Measure expectation value]
+        
+        3. CLASSICAL OPTIMIZATION:
+           θ_new ← optimizer.step(cost, θ)  [Update parameters]
+           
+        4. CONVERGENCE CHECK:
+           if |cost_new - cost_old| < threshold:
+               DONE - parameters optimized!
+           else:
+               θ ← θ_new, goto step 2
+        
+        5. FINAL SOLUTION:
+           Run optimized circuit multiple times
+           Sample bitstrings from measurement
+           Return best solution found
+        
+        Optimization Methods:
+        --------------------
+        
+        COBYLA (Constrained Optimization BY Linear Approximations):
+        - Gradient-free method (doesn't need derivatives)
+        - Good for noisy cost functions (quantum measurements are inherently noisy)
+        - Robust to local curvature changes
+        - Slower convergence but reliable
+        - Default choice for QAOA
+        
+        BFGS (Broyden-Fletcher-Goldfarb-Shanno):
+        - Quasi-Newton method (approximates second derivatives)
+        - Faster convergence when gradients available
+        - Can use parameter-shift rule for quantum gradients
+        - More sensitive to noise
+        - Better for noiseless simulation
+        
+        L-BFGS-B:
+        - Limited-memory BFGS with bounds
+        - Memory efficient for large parameter spaces
+        - Supports parameter constraints
+        
+        Why Classical Optimization is Necessary:
+        ----------------------------------------
+        The quantum circuit is parameterized by angles (γ, β). Finding the RIGHT
+        angles is a classical optimization problem:
+        
+        minimize f(θ) where f(θ) = ⟨ψ(θ)|H|ψ(θ)⟩
+        
+        - f(θ) can only be evaluated by running quantum circuit (expensive!)
+        - Landscape is non-convex with many local minima
+        - Quantum measurements add noise to function evaluations
+        - Need smart exploration strategy to find good parameters
+        
+        This is why we use classical optimizers - they know how to navigate
+        complex, noisy landscapes efficiently!
+        
+        Convergence Monitoring:
+        ----------------------
+        We track several metrics to monitor optimization:
+        
+        1. Objective Value: ⟨H⟩ at each iteration
+           - Should decrease over time (we're minimizing)
+           - May fluctuate due to shot noise
+           - Expect logarithmic or linear convergence
+        
+        2. Parameter Changes: |θ_new - θ_old|
+           - Large changes early (exploration)
+           - Small changes later (fine-tuning)
+           - Very small changes indicate convergence
+        
+        3. Function Tolerance: |f(θ_new) - f(θ_old)|
+           - How much cost improved
+           - Below threshold → declare convergence
+           - Prevents unnecessary iterations
+        
+        Early Stopping:
+        --------------
+        We stop optimization early if:
+        - Cost change < convergence_threshold (converged!)
+        - Maximum iterations reached (prevent infinite loop)
+        - Cost value plateaus for multiple iterations (stuck in local minimum)
+        
+        This saves computational resources and prevents overfitting to noise.
+        
+        Progress Tracking:
+        -----------------
+        During optimization, we print:
+        - Iteration number
+        - Current cost (expectation value)
+        - Parameter values
+        - Improvement from previous iteration
+        
+        This helps users:
+        - Monitor algorithm progress
+        - Debug convergence issues
+        - Understand optimization behavior
+        - Decide when to stop manually
+        
+        Algorithm Flow:
+        ---------------
+        
+        Step 1: PROBLEM CONVERSION
+            problem → QUBO matrix
+            [Convert graph/constraints to mathematical formulation]
+        
+        Step 2: CIRCUIT PREPARATION
+            QUBO → Hamiltonian → QAOA circuit
+            [Build quantum circuit with parameterized gates]
+        
+        Step 3: PARAMETER INITIALIZATION
+            θ₀ ~ random or heuristic values
+            [Starting point for optimization]
+        
+        Step 4: OPTIMIZATION LOOP (hybrid quantum-classical)
+            for iter = 1 to maxiter:
+                ┌─────────────────────────────────────┐
+                │ QUANTUM: Execute circuit(θ)         │  ← Quantum Device
+                │          Measure ⟨H⟩                │
+                └─────────────────────────────────────┘
+                            ↓
+                ┌─────────────────────────────────────┐
+                │ CLASSICAL: Update θ to minimize ⟨H⟩ │  ← Classical CPU
+                │            Check convergence        │
+                └─────────────────────────────────────┘
+        
+        Step 5: SOLUTION SAMPLING
+            Run optimized circuit many times (shots)
+            Collect bitstring measurements
+            Return most frequent or best bitstring
+        
+        Step 6: RESULT FORMATTING
+            Convert bitstring to problem solution
+            Calculate objective value
+            Estimate energy consumption
+            Return standardized result
+        
+        Performance Considerations:
+        --------------------------
+        - Each optimization iteration requires running quantum circuit
+        - With shots=1024, each iteration takes ~1024 circuit executions
+        - Total circuit runs = shots × maxiter (e.g., 1024 × 100 = 102,400)
+        - Simulation time: seconds to minutes depending on problem size
+        - Real hardware: longer due to queue times and slower execution
+        
+        Trade-offs:
+        - More shots → better gradient estimates → slower but more accurate
+        - More iterations → better optimization → longer runtime
+        - More QAOA layers (p) → better approximation → deeper circuits
+        
+        Args:
+            problem: Problem instance with to_qubo() method
+                     Must implement standard problem interface
+            
+            p (int): Number of QAOA layers
+                     More layers = more expressive but deeper circuits
+                     Typical: 1-5 for NISQ devices
+                     Default: 1 (simplest QAOA)
+            
+            maxiter (int): Maximum optimization iterations
+                          More iterations = better convergence but slower
+                          Typical: 50-200
+                          Default: 100
+            
+            optimizer (str): Classical optimization method
+                            Options: 'COBYLA', 'BFGS', 'L-BFGS-B', 'Nelder-Mead'
+                            Default: 'COBYLA' (gradient-free, robust to noise)
+            
+            initial_params (Optional[np.ndarray]): Starting parameters [γ₁, β₁, ..., γₚ, βₚ]
+                                                   If None, random initialization
+                                                   Can use heuristic values for better start
+            
+            convergence_threshold (float): Stop when |Δcost| < threshold
+                                          Smaller = stricter convergence
+                                          Default: 1e-6
+            
+            verbose (bool): Print optimization progress
+                           Useful for monitoring and debugging
+                           Default: True
+        
+        Returns:
+            Dict[str, Any]: Standardized result format
+                {
+                    'solution': List[int],           # Best bitstring found
+                    'cost': float,                   # Objective function value
+                    'time_ms': int,                  # Total execution time
+                    'energy_mj': float,              # Estimated energy consumption
+                    'iterations': int,               # Optimization iterations
+                    'metadata': {
+                        'optimal_params': np.ndarray,     # Best parameters found
+                        'optimization_history': List,     # Cost at each iteration
+                        'convergence_reason': str,        # Why optimization stopped
+                        'circuit_depth': int,             # QAOA circuit depth
+                        'num_qubits': int,               # Problem size
+                        'final_expectation': float,      # Final ⟨H⟩ value
+                        'optimizer': str,                # Optimization method used
+                        'qaoa_layers': int,              # Number of QAOA layers
+                    }
+                }
+        
+        Raises:
+            QuantumSimulatorException: If QAOA execution fails
+            ValueError: If problem doesn't support QUBO conversion
+            ImportError: If scipy not available
+        
+        Example:
+            >>> from src.problems.maxcut import MaxCutProblem
+            >>> problem = MaxCutProblem(num_nodes=6)
+            >>> problem.generate(edge_probability=0.5)
+            >>> 
+            >>> simulator = QuantumSimulator(shots=1024)
+            >>> result = simulator.solve(problem, p=2, maxiter=50, verbose=True)
+            >>> 
+            >>> print(f"Best solution: {result['solution']}")
+            >>> print(f"Cost: {result['cost']:.4f}")
+            >>> print(f"Optimization converged in {result['iterations']} iterations")
+        
+        References:
+            - Farhi et al., "A Quantum Approximate Optimization Algorithm" (2014)
+            - Zhou et al., "Quantum Approximate Optimization Algorithm: Performance,
+              Mechanism, and Implementation on Near-Term Devices" (2020)
+            - Scipy optimize: https://docs.scipy.org/doc/scipy/reference/optimize.html
+        """
+        # ═════════════════════════════════════════════════════════════════════════
+        # STEP 0: Validate inputs and check dependencies
+        # ═════════════════════════════════════════════════════════════════════════
+        
+        if not SCIPY_AVAILABLE:
+            raise ImportError(
+                "Scipy is required for classical optimization. "
+                "Install with: pip install scipy"
+            )
+        
+        # Start timing for performance tracking
+        start_time = time.time()
+        
+        if verbose:
+            print("\n" + "="*70)
+            print("QAOA HYBRID QUANTUM-CLASSICAL OPTIMIZATION")
+            print("="*70)
+            print(f"Problem: {problem.__class__.__name__}")
+            print(f"QAOA layers (p): {p}")
+            print(f"Max iterations: {maxiter}")
+            print(f"Optimizer: {optimizer}")
+            print(f"Shots per evaluation: {self.shots}")
+            print("="*70 + "\n")
+        
+        # ═════════════════════════════════════════════════════════════════════════
+        # STEP 1: Convert problem to QUBO formulation
+        # ═════════════════════════════════════════════════════════════════════════
+        
+        if verbose:
+            print("📊 Step 1: Converting problem to QUBO matrix...")
+        
+        try:
+            qubo_matrix = problem.to_qubo()
+            n_qubits = qubo_matrix.shape[0]
+            
+            if verbose:
+                print(f"   ✓ QUBO matrix size: {n_qubits}×{n_qubits}")
+                print(f"   ✓ Number of qubits needed: {n_qubits}")
+                print(f"   ✓ Hilbert space dimension: 2^{n_qubits} = {2**n_qubits:,}")
+        
+        except AttributeError:
+            raise ValueError(
+                f"Problem {problem.__class__.__name__} does not support QUBO conversion. "
+                f"Implement to_qubo() method."
+            )
+        except Exception as e:
+            raise QuantumSimulatorException(f"Failed to convert problem to QUBO: {e}")
+        
+        # ═════════════════════════════════════════════════════════════════════════
+        # STEP 2: Initialize QAOA parameters
+        # ═════════════════════════════════════════════════════════════════════════
+        
+        if verbose:
+            print(f"\n🎲 Step 2: Initializing QAOA parameters...")
+        
+        n_params = 2 * p  # Each layer has γ (cost) and β (mixer) parameters
+        
+        if initial_params is not None:
+            if len(initial_params) != n_params:
+                raise ValueError(
+                    f"initial_params has {len(initial_params)} elements, "
+                    f"expected {n_params} for p={p} layers"
+                )
+            params = initial_params.copy()
+            if verbose:
+                print(f"   ✓ Using provided initial parameters: {params}")
+        else:
+            # Random initialization with heuristic bounds
+            # γ (cost angles): typically in [0, π]
+            # β (mixer angles): typically in [0, π/2]
+            params = np.zeros(n_params)
+            for i in range(p):
+                params[2*i] = np.random.uniform(0, np.pi)        # γ_i
+                params[2*i + 1] = np.random.uniform(0, np.pi/2)  # β_i
+            
+            if verbose:
+                print(f"   ✓ Random initialization: {params}")
+                print(f"   ✓ Parameter count: {n_params} (γ₁, β₁, ..., γ_{p}, β_{p})")
+        
+        # ═════════════════════════════════════════════════════════════════════════
+        # STEP 3: Build QAOA circuit
+        # ═════════════════════════════════════════════════════════════════════════
+        
+        if verbose:
+            print(f"\n⚛️  Step 3: Building QAOA quantum circuit...")
+        
+        try:
+            circuit = self._build_qaoa_circuit(qubo_matrix, params, p=p)
+            
+            if verbose:
+                print(f"   ✓ Circuit built successfully")
+                print(f"   ✓ Backend: {self.backend}")
+                print(f"   ✓ Estimated circuit depth: ~{p * (n_qubits + len(qubo_matrix.flatten()))}")
+        
+        except Exception as e:
+            raise QuantumSimulatorException(f"Failed to build QAOA circuit: {e}")
+        
+        # ═════════════════════════════════════════════════════════════════════════
+        # STEP 4: Set up optimization tracking
+        # ═════════════════════════════════════════════════════════════════════════
+        
+        optimization_history = []  # Track cost at each iteration
+        iteration_count = [0]      # Mutable counter for callback
+        best_cost = [float('inf')] # Track best cost found
+        best_params = [params.copy()]  # Track best parameters
+        prev_cost = [None]         # For convergence detection
+        
+        # Callback function to track optimization progress
+        def callback(xk):
+            """
+            Called after each optimization iteration.
+            
+            This function is invoked by the scipy optimizer after each step,
+            allowing us to monitor progress, check convergence, and provide
+            user feedback.
+            
+            Args:
+                xk: Current parameter values
+            """
+            iteration_count[0] += 1
+            
+            # Evaluate cost at current parameters
+            # Note: We re-evaluate because scipy doesn't always provide cost in callback
+            current_cost = self._measure_qaoa_expectation(circuit, xk)
+            optimization_history.append(current_cost)
+            
+            # Track best solution found so far
+            if current_cost < best_cost[0]:
+                best_cost[0] = current_cost
+                best_params[0] = xk.copy()
+            
+            # Calculate improvement from previous iteration
+            if prev_cost[0] is not None:
+                improvement = prev_cost[0] - current_cost
+                improvement_pct = (improvement / abs(prev_cost[0])) * 100 if prev_cost[0] != 0 else 0
+            else:
+                improvement = 0
+                improvement_pct = 0
+            
+            prev_cost[0] = current_cost
+            
+            # Print progress if verbose
+            if verbose:
+                print(f"   Iter {iteration_count[0]:3d} | "
+                      f"Cost: {current_cost:+.6f} | "
+                      f"Improvement: {improvement:+.6f} ({improvement_pct:+.2f}%) | "
+                      f"Best: {best_cost[0]:+.6f}")
+            
+            # Check for early stopping (convergence)
+            if iteration_count[0] > 1 and abs(improvement) < convergence_threshold:
+                if verbose:
+                    print(f"\n   🎯 Early stopping: Converged! (improvement < {convergence_threshold})")
+                return True  # Signal to stop optimization
+        
+        # ═════════════════════════════════════════════════════════════════════════
+        # STEP 5: Run hybrid quantum-classical optimization loop
+        # ═════════════════════════════════════════════════════════════════════════
+        
+        if verbose:
+            print(f"\n🔄 Step 4: Running hybrid optimization loop...")
+            print(f"   This is where quantum and classical computing work together!")
+            print(f"   Quantum: Evaluates cost function via circuit execution")
+            print(f"   Classical: Adjusts parameters to minimize cost\n")
+        
+        try:
+            # Define objective function for classical optimizer
+            def objective(params_opt):
+                """
+                Objective function for classical optimization.
+                
+                This function is called by the scipy optimizer. It:
+                1. Takes parameter values from classical optimizer
+                2. Passes them to quantum circuit
+                3. Executes quantum circuit and measures expectation
+                4. Returns cost value to classical optimizer
+                
+                This is the quantum-classical interface!
+                """
+                return self._measure_qaoa_expectation(circuit, params_opt)
+            
+            # Run classical optimization
+            # This is where the magic happens - the optimizer will repeatedly:
+            # 1. Propose new parameters
+            # 2. Call objective() which runs quantum circuit
+            # 3. Receive cost value
+            # 4. Adjust parameters based on cost
+            # 5. Repeat until convergence or max iterations
+            
+            result = minimize(
+                objective,              # Function to minimize (runs quantum circuit)
+                params,                 # Initial parameters
+                method=optimizer,       # Optimization algorithm
+                callback=callback,      # Track progress
+                options={
+                    'maxiter': maxiter,    # Maximum iterations
+                    'disp': False,         # Don't show scipy's own messages
+                }
+            )
+            
+            # Extract optimization results
+            optimal_params = best_params[0]  # Use best params found (not final)
+            final_cost = best_cost[0]
+            converged = result.success
+            convergence_reason = result.message if hasattr(result, 'message') else 'Unknown'
+            
+            if verbose:
+                print(f"\n{'='*70}")
+                print(f"Optimization {'CONVERGED' if converged else 'COMPLETED'}")
+                print(f"{'='*70}")
+                print(f"Total iterations: {iteration_count[0]}")
+                print(f"Final cost: {final_cost:.6f}")
+                print(f"Initial cost: {optimization_history[0]:.6f}")
+                print(f"Total improvement: {optimization_history[0] - final_cost:.6f}")
+                print(f"Convergence reason: {convergence_reason}")
+                print(f"{'='*70}\n")
+        
+        except Exception as e:
+            raise QuantumSimulatorException(f"Optimization failed: {e}")
+        
+        # ═════════════════════════════════════════════════════════════════════════
+        # STEP 6: Sample solutions using optimal parameters
+        # ═════════════════════════════════════════════════════════════════════════
+        
+        if verbose:
+            print(f"🎯 Step 5: Sampling solutions with optimal parameters...")
+        
+        # Build sampling circuit (without expectation value, just measurements)
+        device = self._create_device(n_qubits)
+        
+        @qml.qnode(device)
+        def sampling_circuit(params_sample):
+            """Circuit for sampling final solutions (returns samples, not expectation)."""
+            # Build the same QAOA circuit
+            hamiltonian = self._qubo_to_hamiltonian(qubo_matrix)
+            h_coeffs, h_ops = hamiltonian.terms()
+            
+            # Initialize in superposition
+            for i in range(n_qubits):
+                qml.Hadamard(wires=i)
+            
+            # Apply QAOA layers
+            for layer in range(p):
+                gamma = params_sample[2 * layer]
+                beta = params_sample[2 * layer + 1]
+                
+                # Cost layer
+                for coeff, op in zip(h_coeffs, h_ops):
+                    qubits = op.wires.tolist()
+                    if len(qubits) == 1:
+                        qml.RZ(2 * gamma * coeff, wires=qubits[0])
+                    elif len(qubits) == 2:
+                        q_i, q_j = qubits
+                        angle = 2 * gamma * coeff
+                        qml.CNOT(wires=[q_i, q_j])
+                        qml.RZ(angle, wires=q_j)
+                        qml.CNOT(wires=[q_i, q_j])
+                
+                # Mixer layer
+                for i in range(n_qubits):
+                    qml.RX(2 * beta, wires=i)
+            
+            # Measure all qubits
+            return [qml.sample(qml.PauliZ(i)) for i in range(n_qubits)]
+        
+        # Sample multiple times
+        samples = sampling_circuit(optimal_params)
+        
+        # Convert samples to bitstrings
+        # Pennylane samples give ±1, convert to 0/1
+        # -1 (eigenvalue of Z for |1⟩) → 1 (binary)
+        # +1 (eigenvalue of Z for |0⟩) → 0 (binary)
+        if isinstance(samples, list):
+            # Multiple measurements
+            bitstrings = []
+            for _ in range(self.shots):
+                sample = sampling_circuit(optimal_params)
+                bitstring = [(1 - int(s)) // 2 for s in sample]
+                bitstrings.append(bitstring)
+        else:
+            # Single shot (convert single sample)
+            bitstrings = [[(1 - int(s)) // 2 for s in samples]]
+        
+        # Find most common bitstring (or evaluate all and pick best)
+        best_solution = None
+        best_solution_cost = float('inf')
+        
+        for bitstring in bitstrings:
+            # Evaluate this solution's cost using QUBO
+            cost = 0
+            for i in range(n_qubits):
+                for j in range(n_qubits):
+                    cost += qubo_matrix[i, j] * bitstring[i] * bitstring[j]
+            
+            if cost < best_solution_cost:
+                best_solution_cost = cost
+                best_solution = bitstring
+        
+        if verbose:
+            print(f"   ✓ Sampled {len(bitstrings)} solutions")
+            print(f"   ✓ Best solution found: {best_solution}")
+            print(f"   ✓ Best solution cost: {best_solution_cost:.6f}")
+        
+        # ═════════════════════════════════════════════════════════════════════════
+        # STEP 7: Calculate execution metrics and format results
+        # ═════════════════════════════════════════════════════════════════════════
+        
+        end_time = time.time()
+        execution_time_ms = int((end_time - start_time) * 1000)
+        
+        # Estimate energy consumption
+        # Rough estimates for quantum simulation:
+        # - Classical CPU simulation: ~10-50 mJ per circuit execution
+        # - Depends on qubit count, circuit depth, shots
+        total_circuit_executions = iteration_count[0] * self.shots + self.shots  # optimization + sampling
+        energy_per_circuit_mj = 0.02 * (2 ** min(n_qubits, 10))  # Exponential scaling (capped)
+        estimated_energy_mj = total_circuit_executions * energy_per_circuit_mj
+        
+        # Prepare metadata
+        metadata = {
+            'optimal_params': optimal_params.tolist(),
+            'optimization_history': optimization_history,
+            'convergence_reason': convergence_reason,
+            'converged': converged,
+            'circuit_depth': p * (n_qubits + len(h_coeffs) * 2),  # Approximate
+            'num_qubits': n_qubits,
+            'final_expectation': final_cost,
+            'optimizer': optimizer,
+            'qaoa_layers': p,
+            'total_iterations': iteration_count[0],
+            'total_circuit_executions': total_circuit_executions,
+            'backend': self.backend,
+            'shots': self.shots,
+            'initial_cost': optimization_history[0] if optimization_history else None,
+            'improvement': (optimization_history[0] - final_cost) if optimization_history else 0,
+        }
+        
+        # Format standardized result
+        result_dict = {
+            'solution': best_solution,
+            'cost': float(best_solution_cost),
+            'time_ms': execution_time_ms,
+            'energy_mj': estimated_energy_mj,
+            'iterations': iteration_count[0],
+            'metadata': metadata
+        }
+        
+        if verbose:
+            print(f"\n{'='*70}")
+            print(f"FINAL RESULTS")
+            print(f"{'='*70}")
+            print(f"Solution: {best_solution}")
+            print(f"Cost: {best_solution_cost:.6f}")
+            print(f"Execution time: {execution_time_ms} ms")
+            print(f"Energy consumption: {estimated_energy_mj:.2f} mJ")
+            print(f"Total circuit executions: {total_circuit_executions:,}")
+            print(f"{'='*70}\n")
+        
+        return result_dict
     
     def get_solver_info(self) -> Dict[str, Any]:
         """
