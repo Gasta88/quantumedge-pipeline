@@ -490,6 +490,645 @@ class QuantumSimulator(SolverBase):
         
         return self.device
     
+    def _qubo_to_hamiltonian(self, qubo_matrix: np.ndarray) -> Any:
+        """
+        Convert QUBO matrix to Pennylane Hamiltonian.
+        
+        QUBO (Quadratic Unconstrained Binary Optimization) problems have the form:
+            minimize: x^T Q x
+            where x ∈ {0, 1}^n (binary variables)
+            and Q is the QUBO matrix
+        
+        Mathematical Conversion:
+        -----------------------
+        
+        1. Binary to Spin Mapping:
+           QUBO uses binary variables x_i ∈ {0, 1}
+           Quantum computers use spin variables σ_i ∈ {-1, +1}
+           
+           Mapping: x_i = (1 - σ_i) / 2
+           
+           Where σ_i is represented by Pauli-Z operator:
+           - |0⟩ state → σ_i = +1 → x_i = 0
+           - |1⟩ state → σ_i = -1 → x_i = 1
+        
+        2. QUBO to Ising Hamiltonian:
+           Starting with QUBO: Σ_ij Q_ij x_i x_j
+           
+           Substitute x_i = (1 - σ_i) / 2:
+           = Σ_ij Q_ij [(1 - σ_i) / 2] [(1 - σ_j) / 2]
+           = Σ_ij Q_ij [(1 - σ_i - σ_j + σ_i σ_j) / 4]
+           
+           Expanding terms:
+           = (1/4) Σ_ij Q_ij [1 - σ_i - σ_j + σ_i σ_j]
+           
+           Grouping by order:
+           - Constant: (1/4) Σ_ij Q_ij
+           - Linear: -(1/4) Σ_ij Q_ij (σ_i + σ_j)
+           - Quadratic: (1/4) Σ_ij Q_ij σ_i σ_j
+        
+        3. Pennylane Hamiltonian Representation:
+           In Pennylane, we represent this using Pauli operators:
+           
+           H = Σ_i h_i Z_i + Σ_{i<j} J_ij Z_i Z_j + constant
+           
+           Where:
+           - Z_i is Pauli-Z operator on qubit i
+           - h_i are local field coefficients
+           - J_ij are coupling coefficients
+        
+        4. Coefficient Calculation:
+           For diagonal QUBO terms Q_ii:
+               h_i = -Q_ii / 2 - (1/2) Σ_{j≠i} Q_ij
+           
+           For off-diagonal QUBO terms Q_ij (i ≠ j):
+               J_ij = Q_ij / 4
+           
+           Constant term (can be ignored for optimization):
+               C = (1/4) Σ_ij Q_ij
+        
+        Why We Need This:
+        ------------------
+        - QAOA works with quantum operators (Hamiltonians)
+        - QUBO is a classical formulation
+        - This conversion allows us to encode classical optimization
+          problems into quantum circuits
+        - The eigenvalues of the Hamiltonian correspond to QUBO objective values
+        
+        Example:
+        --------
+        For MaxCut on 2 nodes with edge weight 1:
+            QUBO = [[-1,  1],
+                    [ 1, -1]]
+            
+        This becomes:
+            H = -0.5 * Z_0 - 0.5 * Z_1 + 0.25 * Z_0 Z_1
+            
+        Where measuring |01⟩ or |10⟩ gives lower energy (better cut)
+        than |00⟩ or |11⟩ (no cut).
+        
+        Args:
+            qubo_matrix (np.ndarray): n×n QUBO coefficient matrix
+                                      Typically symmetric for optimization problems
+        
+        Returns:
+            qml.Hamiltonian: Pennylane Hamiltonian object ready for QAOA
+        
+        Note:
+            The constant term is typically omitted as it doesn't affect
+            the optimization (doesn't change relative ordering of solutions).
+        """
+        n = qubo_matrix.shape[0]  # Number of qubits needed
+        
+        # Lists to store Hamiltonian terms
+        coeffs = []  # Coefficients for each term
+        obs = []     # Observables (Pauli operators) for each term
+        
+        # Process diagonal terms (local fields)
+        # These represent individual variable contributions
+        for i in range(n):
+            # Calculate local field coefficient
+            # h_i includes diagonal term and half of all interactions with i
+            h_i = -qubo_matrix[i, i] / 2.0
+            
+            # Add contributions from interactions (off-diagonal terms)
+            for j in range(n):
+                if i != j:
+                    h_i -= qubo_matrix[i, j] / 2.0
+            
+            # Only add non-zero terms (efficiency)
+            if abs(h_i) > 1e-10:
+                coeffs.append(h_i)
+                obs.append(qml.PauliZ(i))  # Z operator on qubit i
+        
+        # Process off-diagonal terms (couplings)
+        # These represent interactions between pairs of variables
+        for i in range(n):
+            for j in range(i + 1, n):  # Only upper triangle (avoid double-counting)
+                # Calculate coupling coefficient
+                # Average Q_ij and Q_ji in case matrix is not perfectly symmetric
+                J_ij = (qubo_matrix[i, j] + qubo_matrix[j, i]) / 4.0
+                
+                # Only add non-zero couplings
+                if abs(J_ij) > 1e-10:
+                    coeffs.append(J_ij)
+                    # Z_i ⊗ Z_j: measures correlation between qubits i and j
+                    obs.append(qml.PauliZ(i) @ qml.PauliZ(j))
+        
+        # Construct Pennylane Hamiltonian
+        # H = Σ coeffs[k] * obs[k]
+        if len(coeffs) == 0:
+            # Edge case: all-zero QUBO (trivial problem)
+            logger.warning("QUBO matrix is all zeros, creating identity Hamiltonian")
+            coeffs = [0.0]
+            obs = [qml.Identity(0)]
+        
+        hamiltonian = qml.Hamiltonian(coeffs, obs)
+        
+        logger.debug(
+            f"Converted QUBO to Hamiltonian: {len(coeffs)} terms "
+            f"({n} qubits, {sum(1 for o in obs if len(o.wires) == 1)} local fields, "
+            f"{sum(1 for o in obs if len(o.wires) == 2)} couplings)"
+        )
+        
+        return hamiltonian
+    
+    def _build_qaoa_circuit(
+        self,
+        qubo_matrix: np.ndarray,
+        params: np.ndarray,
+        p: int = 1
+    ) -> callable:
+        """
+        Build QAOA (Quantum Approximate Optimization Algorithm) circuit.
+        
+        QAOA Overview:
+        --------------
+        QAOA is a hybrid quantum-classical algorithm designed to find approximate
+        solutions to combinatorial optimization problems. It was introduced by
+        Farhi et al. (2014) and is one of the most promising near-term quantum
+        algorithms (NISQ era).
+        
+        How QAOA Works:
+        ---------------
+        
+        1. Problem Encoding:
+           - Encode optimization problem as a Hamiltonian H_C (cost Hamiltonian)
+           - The ground state of H_C encodes the optimal solution
+           - Energy eigenvalues correspond to objective function values
+        
+        2. Quantum State Preparation:
+           - Start with uniform superposition: |ψ_0⟩ = (1/√2^n) Σ|x⟩
+           - This is achieved by applying Hadamard gates to all qubits
+           - Represents equal probability of all possible solutions
+           - This is our initial "guess" - completely random!
+        
+        3. Variational Circuit (Ansatz):
+           QAOA circuit has alternating layers (repeated p times):
+           
+           a) Problem Layer - encode cost function:
+              U_C(γ) = exp(-i γ H_C)
+              
+              - Applies phase rotations based on problem structure
+              - γ (gamma) is a variational parameter (angle)
+              - Implements "time evolution" under H_C
+              - Encodes problem structure into quantum state
+              - For QUBO: involves Z and ZZ rotations
+           
+           b) Mixer Layer - enable exploration:
+              U_M(β) = exp(-i β H_M)
+              
+              - H_M is typically the X mixer: Σ X_i
+              - β (beta) is a variational parameter (angle)
+              - Creates superpositions to explore solution space
+              - Prevents getting stuck in local optima
+              - Analogous to "hopping" in simulated annealing
+           
+           The full circuit with p layers:
+           |ψ(γ, β)⟩ = U_M(β_p) U_C(γ_p) ... U_M(β_1) U_C(γ_1) |+⟩^n
+        
+        4. Measurement:
+           - Measure all qubits in computational basis
+           - Each measurement gives a candidate solution
+           - Measurement probabilities reflect solution quality
+           - Better solutions have higher probability amplitudes
+        
+        5. Classical Optimization:
+           - Measure expectation value ⟨H_C⟩ = cost function
+           - Use classical optimizer to adjust angles γ, β
+           - Goal: minimize ⟨H_C⟩ → find better solutions
+           - Common optimizers: COBYLA, ADAM, L-BFGS-B
+           - Repeat circuit + measurement + optimization
+        
+        Role of Parameters (Angles):
+        ----------------------------
+        
+        Gamma (γ) - Problem Angles:
+        - Control how much problem structure to encode
+        - Small γ → weak encoding, state stays in superposition
+        - Large γ → strong encoding, state moves toward low-energy configurations
+        - Optimal γ depends on problem instance and layer number
+        
+        Beta (β) - Mixer Angles:
+        - Control exploration vs exploitation trade-off
+        - Small β → stay close to current state (exploitation)
+        - Large β → broad exploration of solution space
+        - β ≈ π/4 often works well for X mixer
+        
+        Why Use Superposition:
+        ----------------------
+        - Classical algorithms check solutions one at a time (or a few)
+        - Quantum superposition allows checking many solutions simultaneously
+        - Quantum interference amplifies good solutions, suppresses bad ones
+        - This is the source of potential quantum advantage!
+        
+        But:
+        - We don't get all solutions instantly (measurement collapses state)
+        - Need many measurements to see the probability distribution
+        - Classical optimization guides us to better parameter settings
+        
+        Circuit Depth and Layers:
+        -------------------------
+        
+        p = 1 (Shallow):
+        - Fast execution, minimal noise accumulation
+        - Can find reasonable solutions for simple problems
+        - May miss optimal solution for complex problems
+        - Circuit depth: O(n) for sparse problems, O(n²) for dense
+        
+        p > 1 (Deep):
+        - More expressive, can approximate optimal solution better
+        - Higher circuit depth → more noise in real hardware
+        - More parameters to optimize (2p parameters total)
+        - Theoretical guarantee: as p→∞, can reach exact solution
+        
+        Rule of thumb: Start with p=1, increase if solution quality insufficient
+        
+        Circuit Structure (for this implementation):
+        --------------------------------------------
+        
+        Step 1: Initialize in superposition
+            H|0⟩^n → |+⟩^n = (1/√2^n) Σ|x⟩
+            
+        Step 2: For each layer l = 1 to p:
+            a) Apply cost Hamiltonian evolution:
+               - For each Z term (local field): RZ(2*γ_l*h_i) on qubit i
+               - For each ZZ term (coupling): exp(-i*γ_l*J_ij*Z_i*Z_j)
+                 Implemented as: CNOT-RZ-CNOT sequence
+               
+            b) Apply mixer Hamiltonian evolution:
+               - For each qubit: RX(2*β_l) (X rotation)
+               - This is X mixer: exp(-i*β*Σ X_i)
+        
+        Step 3: Measure all qubits
+        
+        Performance Characteristics:
+        ---------------------------
+        - Time complexity: O(p * m * shots) where m is # of Hamiltonian terms
+        - Space complexity: O(2^n) for state vector simulation
+        - Shot count: More shots → better statistics → slower but more accurate
+        - Parameter count: 2p (can be optimized with ~10-1000 iterations)
+        
+        Args:
+            qubo_matrix (np.ndarray): QUBO matrix defining the problem
+            params (np.ndarray): Variational parameters [γ_1, β_1, ..., γ_p, β_p]
+                                 Shape: (2*p,) where p is number of layers
+            p (int): Number of QAOA layers (depth)
+                     Default: 1 (shallowest QAOA)
+                     Typical range: 1-10
+        
+        Returns:
+            callable: Pennylane QNode (quantum circuit function)
+                      Can be called with params to execute circuit
+        
+        Example:
+            >>> qubo = np.array([[-1, 1], [1, -1]])  # MaxCut on 2 nodes
+            >>> params = np.array([0.5, 0.3])  # [γ, β] for p=1
+            >>> circuit = self._build_qaoa_circuit(qubo, params, p=1)
+            >>> expectation = circuit(params)  # Execute and measure
+        
+        References:
+            - Farhi et al., "A Quantum Approximate Optimization Algorithm" (2014)
+            - Pennylane QAOA tutorial: https://pennylane.ai/qml/demos/tutorial_qaoa_intro.html
+        """
+        n = qubo_matrix.shape[0]  # Number of qubits
+        
+        # Convert QUBO to quantum Hamiltonian
+        hamiltonian = self._qubo_to_hamiltonian(qubo_matrix)
+        
+        # Create or get device for this problem size
+        device = self._create_device(n)
+        
+        # Extract Hamiltonian components for circuit construction
+        # hamiltonian.terms() returns (coefficients, observables)
+        h_coeffs, h_ops = hamiltonian.terms()
+        
+        # Validate parameters
+        expected_params = 2 * p
+        if len(params) != expected_params:
+            raise ValueError(
+                f"Expected {expected_params} parameters for p={p} layers, "
+                f"got {len(params)}"
+            )
+        
+        # Define the quantum circuit as a Pennylane QNode
+        @qml.qnode(device)
+        def circuit(params):
+            """
+            The actual QAOA quantum circuit.
+            
+            This function defines the quantum operations that will be executed.
+            It's decorated with @qml.qnode which tells Pennylane to compile it
+            into an executable quantum circuit on the specified device.
+            
+            Args:
+                params: Variational parameters [γ_1, β_1, ..., γ_p, β_p]
+            
+            Returns:
+                Expectation value of the cost Hamiltonian ⟨ψ|H_C|ψ⟩
+            """
+            
+            # ============================================================
+            # STEP 1: Initialize all qubits in equal superposition
+            # ============================================================
+            # Apply Hadamard gate to each qubit: H|0⟩ = |+⟩ = (|0⟩ + |1⟩)/√2
+            # 
+            # Why superposition?
+            # - Classical computers start with one specific state (e.g., all zeros)
+            # - Quantum computers can start in ALL possible states simultaneously
+            # - For n qubits: |+⟩^n = (1/√2^n) Σ|x⟩ over all 2^n bitstrings x
+            # - This is quantum parallelism - we're "trying all solutions at once"
+            # 
+            # Mathematical notation:
+            # |+⟩^n = H^⊗n |0⟩^n
+            #       = ⊗_{i=1}^n (|0⟩_i + |1⟩_i)/√2
+            #       = (1/√2^n) Σ_{x∈{0,1}^n} |x⟩
+            #
+            for i in range(n):
+                qml.Hadamard(wires=i)
+            
+            # ============================================================
+            # STEP 2: Apply p layers of QAOA evolution
+            # ============================================================
+            # Each layer has two components:
+            # 1. Cost layer: Encodes problem structure (uses γ angles)
+            # 2. Mixer layer: Explores solution space (uses β angles)
+            #
+            for layer in range(p):
+                # Extract parameters for this layer
+                gamma = params[2 * layer]      # Cost angle for this layer
+                beta = params[2 * layer + 1]   # Mixer angle for this layer
+                
+                # --------------------------------------------------------
+                # STEP 2a: Apply Cost Hamiltonian U_C(γ) = exp(-i γ H_C)
+                # --------------------------------------------------------
+                # This encodes the optimization problem into the quantum state
+                # 
+                # For each term in the Hamiltonian, we apply a rotation:
+                # - Single Z terms (h_i * Z_i): Apply RZ gate
+                # - Double ZZ terms (J_ij * Z_i Z_j): Apply CNOT-RZ-CNOT
+                #
+                # The angle γ controls how strongly we encode the problem:
+                # - Small γ: weak encoding, stay mostly in superposition
+                # - Large γ: strong encoding, move toward low-energy states
+                #
+                # Mathematical form:
+                # exp(-i γ h_i Z_i) = RZ(2γ h_i)  [single qubit rotation]
+                # exp(-i γ J_ij Z_i Z_j)          [two qubit rotation]
+                #
+                for coeff, op in zip(h_coeffs, h_ops):
+                    # Get qubits involved in this term
+                    qubits = op.wires.tolist()
+                    
+                    if len(qubits) == 1:
+                        # Single-qubit term: local field
+                        # Apply RZ rotation: RZ(θ) = exp(-i θ Z/2)
+                        # We want exp(-i γ coeff Z), so θ = 2*γ*coeff
+                        qml.RZ(2 * gamma * coeff, wires=qubits[0])
+                        
+                    elif len(qubits) == 2:
+                        # Two-qubit term: coupling between variables
+                        # We want to apply: exp(-i γ J_ij Z_i Z_j)
+                        # 
+                        # This is implemented using the identity:
+                        # exp(-i θ Z_i Z_j) = CNOT(i,j) RZ(2θ) CNOT(i,j)
+                        #
+                        # Circuit:
+                        #   q_i: ─────●────────────●─────
+                        #             │            │
+                        #   q_j: ─────X───RZ(2θ)───X─────
+                        #
+                        q_i, q_j = qubits
+                        angle = 2 * gamma * coeff
+                        
+                        qml.CNOT(wires=[q_i, q_j])
+                        qml.RZ(angle, wires=q_j)
+                        qml.CNOT(wires=[q_i, q_j])
+                
+                # --------------------------------------------------------
+                # STEP 2b: Apply Mixer Hamiltonian U_M(β) = exp(-i β H_M)
+                # --------------------------------------------------------
+                # The mixer drives transitions between different states
+                # 
+                # Standard choice: X mixer, H_M = Σ_i X_i
+                # Applies X rotations to all qubits
+                #
+                # Why X mixer?
+                # - X operator flips qubits: X|0⟩ = |1⟩, X|1⟩ = |0⟩
+                # - RX(β) creates superposition of current state and flipped state
+                # - This allows algorithm to "explore" nearby solutions
+                # - Without mixer, we'd be stuck in initial superposition
+                #
+                # The angle β controls exploration:
+                # - Small β: minor perturbations, exploitation
+                # - Large β: major changes, exploration
+                # - β ≈ π: maximum mixing (flip all qubits completely)
+                #
+                # Mathematical form:
+                # exp(-i β X_i) = RX(2β)
+                # RX(θ) = cos(θ/2)I - i*sin(θ/2)X
+                #
+                for i in range(n):
+                    qml.RX(2 * beta, wires=i)
+            
+            # ============================================================
+            # STEP 3: Measure expectation value of cost Hamiltonian
+            # ============================================================
+            # We want to know: ⟨ψ(γ,β)|H_C|ψ(γ,β)⟩
+            # 
+            # This expectation value is the cost function we're minimizing
+            # 
+            # How measurement works:
+            # 1. Quantum state after QAOA: |ψ(γ,β)⟩ = Σ α_x |x⟩
+            #    where α_x are complex amplitudes
+            # 
+            # 2. Measurement probabilities: P(x) = |α_x|²
+            #    When we measure, we get bitstring x with probability P(x)
+            # 
+            # 3. Expectation value calculation:
+            #    ⟨H⟩ = Σ_x P(x) * E(x)
+            #    where E(x) is the energy (cost) of bitstring x
+            # 
+            # 4. Pennylane automatically:
+            #    - Runs circuit multiple times (shots)
+            #    - Collects measurement statistics
+            #    - Computes expectation value
+            #    - Returns scalar value for optimizer
+            #
+            # Note: We're measuring the cost Hamiltonian, not individual qubits
+            # Pennylane handles this through operator expectation values
+            #
+            return qml.expval(hamiltonian)
+        
+        # Validate circuit depth
+        # Estimate depth: ~2 gates per Hamiltonian term per layer + mixer gates
+        estimated_depth = p * (len(h_coeffs) * 3 + n)  # Conservative estimate
+        self._validate_circuit_depth(estimated_depth, n)
+        
+        logger.debug(
+            f"Built QAOA circuit: {n} qubits, {p} layers, "
+            f"{len(params)} parameters, ~{estimated_depth} gates"
+        )
+        
+        return circuit
+    
+    def _measure_qaoa_expectation(
+        self,
+        circuit: callable,
+        params: np.ndarray
+    ) -> float:
+        """
+        Execute QAOA circuit and measure expectation value.
+        
+        This function is the bridge between the quantum circuit and the
+        classical optimization loop. It:
+        1. Executes the quantum circuit with given parameters
+        2. Performs measurements (shots)
+        3. Computes the expectation value of the cost Hamiltonian
+        4. Returns this value to the classical optimizer
+        
+        What is Expectation Value?
+        --------------------------
+        The expectation value ⟨H⟩ is the average energy/cost we would get
+        if we measured the quantum state many times:
+        
+        ⟨H⟩ = ⟨ψ|H|ψ⟩ = Σ_x P(x) * E(x)
+        
+        Where:
+        - |ψ⟩ is our quantum state after QAOA circuit
+        - P(x) = |⟨x|ψ⟩|² is probability of measuring bitstring x
+        - E(x) is the energy (objective value) of solution x
+        
+        Example:
+        --------
+        Suppose we have a MaxCut problem and after QAOA we get:
+        
+        |ψ⟩ = 0.6|01⟩ + 0.6|10⟩ + 0.4|00⟩ + 0.4|11⟩
+        
+        Measurement probabilities:
+        - P(01) = 0.36  →  E(01) = -1 (good cut)
+        - P(10) = 0.36  →  E(10) = -1 (good cut)
+        - P(00) = 0.16  →  E(00) = +1 (bad cut)
+        - P(11) = 0.16  →  E(11) = +1 (bad cut)
+        
+        Expectation value:
+        ⟨H⟩ = 0.36*(-1) + 0.36*(-1) + 0.16*(+1) + 0.16*(+1)
+            = -0.36 - 0.36 + 0.16 + 0.16
+            = -0.40
+        
+        Lower (more negative) is better!
+        Good QAOA parameters concentrate amplitude on good solutions.
+        
+        Why This is the Cost Function:
+        ------------------------------
+        In the outer classical optimization loop, we're trying to find
+        the best parameters (γ, β) that minimize ⟨H⟩.
+        
+        Optimization process:
+        1. Start with random or heuristic parameters
+        2. Measure ⟨H⟩ with current parameters (this function)
+        3. Classical optimizer adjusts parameters to reduce ⟨H⟩
+        4. Repeat until convergence
+        
+        The optimizer is essentially doing gradient descent (or similar)
+        in parameter space to find the angles that give lowest energy.
+        
+        Measurement Statistics:
+        ----------------------
+        With finite shots, we get statistical estimates:
+        
+        - True expectation: ⟨H⟩_true
+        - Measured estimate: ⟨H⟩_measured ≈ ⟨H⟩_true
+        - Uncertainty: σ ~ 1/√shots
+        
+        More shots → better estimate → slower but more accurate
+        
+        Trade-offs:
+        - 100 shots: Fast, noisy gradient signals, may converge poorly
+        - 1000 shots: Balanced (typical choice)
+        - 10000 shots: Slow, smooth optimization, better convergence
+        
+        Noise Effects:
+        -------------
+        In real hardware or noisy simulation:
+        - Photon loss: Some qubits measured wrong
+        - Gate errors: Circuit doesn't implement exact evolution
+        - Measurement errors: Wrong bitstrings recorded
+        
+        All of these add noise to ⟨H⟩, making optimization harder.
+        More shots can help average out noise, but systematic errors remain.
+        
+        Photonic Specifics:
+        ------------------
+        For photonic quantum computers:
+        - Detection efficiency: ~97% → 3% of measurements invalid
+        - Photon loss: ~0.5% per gate → accumulated over circuit
+        - These errors bias the expectation value
+        - Typically make ⟨H⟩ closer to zero (less negative)
+        - Can prevent finding true optimal solution
+        
+        Implementation Details:
+        ----------------------
+        Pennylane automatically handles:
+        1. Circuit compilation to device-specific gates
+        2. Shot-based sampling of computational basis
+        3. Expectation value calculation from samples
+        4. Gradient computation (if using autodiff)
+        
+        We just call circuit(params) and get back ⟨H⟩!
+        
+        Args:
+            circuit (callable): Pennylane QNode (compiled quantum circuit)
+                               Created by _build_qaoa_circuit()
+            params (np.ndarray): Variational parameters [γ_1, β_1, ..., γ_p, β_p]
+        
+        Returns:
+            float: Expectation value ⟨H⟩ = ⟨ψ(γ,β)|H_C|ψ(γ,β)⟩
+                  This is the cost function value to be minimized
+                  Lower values indicate better solutions
+        
+        Note:
+            - This function is called many times during optimization
+            - Each call executes the full circuit 'shots' times
+            - Total quantum circuit executions = shots * optimization_steps
+            - For shots=1024 and 100 optimization steps: 102,400 circuit runs!
+        
+        Example:
+            >>> params = np.array([0.5, 0.3])  # [γ, β] for p=1
+            >>> cost = self._measure_qaoa_expectation(circuit, params)
+            >>> print(f"Current cost: {cost:.4f}")
+            Current cost: -0.8234
+        """
+        # Execute the quantum circuit with given parameters
+        # Pennylane will:
+        # 1. Compile the circuit to device-specific gates
+        # 2. Run the circuit 'self.shots' times
+        # 3. Collect measurement outcomes
+        # 4. Calculate expectation value from measurement statistics
+        # 5. Return the scalar expectation value
+        
+        try:
+            expectation = circuit(params)
+            
+            # Log execution for debugging (can be verbose in optimization loop)
+            logger.debug(
+                f"QAOA expectation: {expectation:.6f} "
+                f"(params: {params})"
+            )
+            
+            return float(expectation)
+            
+        except Exception as e:
+            # Circuit execution can fail for various reasons:
+            # - Device errors
+            # - Memory limits
+            # - Invalid parameters
+            # - Backend issues
+            logger.error(f"Circuit execution failed: {e}")
+            raise QuantumSimulatorException(
+                f"Failed to measure QAOA expectation: {e}"
+            )
+    
     def get_solver_info(self) -> Dict[str, Any]:
         """
         Get information about this quantum simulator.
