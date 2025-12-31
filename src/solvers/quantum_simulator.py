@@ -1141,6 +1141,1070 @@ class QuantumSimulator(SolverBase):
                 f"Failed to measure QAOA expectation: {e}"
             )
     
+    def _apply_photonic_noise(
+        self,
+        circuit_func: callable,
+        num_qubits: int,
+        num_gates: int
+    ) -> float:
+        """
+        Apply realistic photonic noise to circuit execution.
+        
+        Photonic Quantum Computing: Noise Characteristics
+        ==================================================
+        
+        Unlike superconducting qubits (which operate at ~20 millikelvin and have
+        T1/T2 coherence times of ~100 microseconds), photonic quantum computers
+        have fundamentally different noise profiles:
+        
+        Photonic Noise Sources:
+        -----------------------
+        
+        1. **Photon Loss** (Dominant Error Source):
+           - Occurs during waveguide transmission
+           - Beam splitters and phase shifters introduce loss
+           - Coupling between components has inefficiency
+           - Detection has <100% efficiency
+           
+           Typical rates:
+           - Propagation loss: 0.1-1 dB/cm (wavelength dependent)
+           - Per-gate loss: 0.5-2% per operation
+           - Fiber coupling: 1-5% per connection
+           - Detection loss: 1-5% (even with good detectors)
+           
+           Why it matters:
+           - Lost photons → missing information
+           - Can't recover lost photons (unlike superconducting bit flips)
+           - Accumulates multiplicatively: P_survive = (1-loss)^n_gates
+           
+        2. **Mode Mismatch** (Imperfect Interference):
+           - Photonic gates rely on quantum interference
+           - Requires photons in identical spatial/temporal modes
+           - Imperfect mode matching → reduced gate fidelity
+           
+           Effects:
+           - Two-photon gates most sensitive
+           - Hong-Ou-Mandel interference not perfect
+           - Visibility ~95-99% for good systems
+           
+           Causes:
+           - Manufacturing tolerances in waveguides
+           - Temperature fluctuations (even at room temp)
+           - Wavelength instabilities
+           - Spatial mode distortions
+        
+        3. **Detector Inefficiency**:
+           - Single Photon Detectors (SPDs) not 100% efficient
+           - State-of-art: 95-99% quantum efficiency
+           - Every measurement has chance of missing photon
+           
+           Types of detectors:
+           - Superconducting Nanowire SPDs: 95-99%, need cooling
+           - Avalanche Photodiodes (APD): 50-70%, room temp
+           - Transition Edge Sensors: >99%, need cooling
+           
+           Impact:
+           - Lost measurements → statistical bias
+           - Need post-selection (throw out failed detections)
+           - Reduces effective measurement rate
+        
+        Why Photonic Noise Differs from Superconducting:
+        ------------------------------------------------
+        
+        Superconducting Qubits:
+        ❌ Thermal excitation (need extreme cooling)
+        ❌ Energy relaxation (T1 ~ 50-100 μs)
+        ❌ Dephasing (T2 ~ 50-100 μs)
+        ❌ Crosstalk between qubits
+        ✓ High gate fidelities (99.9% single, 99% two-qubit)
+        
+        Photonic Qubits:
+        ✓ No thermal excitation (photons at room temp)
+        ✓ No decoherence during flight (photons don't interact with environment)
+        ✓ No crosstalk (photons in separate modes don't interfere)
+        ❌ Photon loss (main error mechanism)
+        ❌ Detector inefficiency
+        ❌ Mode mismatch
+        
+        Room Temperature Operation:
+        ---------------------------
+        
+        Why photonic systems can work at room temperature:
+        
+        1. **Photon Energy Scale**:
+           - Telecom photons (1550 nm): E = hν ≈ 0.8 eV
+           - Thermal energy at 300K: kT ≈ 0.026 eV
+           - Ratio: E/(kT) ≈ 30
+           - Thermal excitation: exp(-E/kT) ≈ 10^-13 (negligible!)
+        
+        2. **No Material Excitations**:
+           - Photons don't live in a material (unlike superconducting qubits)
+           - No substrate to thermally excite
+           - Waveguides have bandgap >> kT
+           - Only concern is detector dark counts
+        
+        3. **Decoherence-Free Subspace**:
+           - Photons in vacuum don't decohere
+           - Path encoding is robust
+           - Polarization stable over long distances
+           - Time-bin encoding immune to slow drifts
+        
+        This is HUGE for edge deployment:
+        ✓ No cryogenic infrastructure (saves space, weight, power)
+        ✓ Easier maintenance (no helium, no vibration isolation)
+        ✓ Lower operating cost (~90% reduction vs cryogenic)
+        ✓ Faster startup (no cooldown time)
+        ✓ More reliable (fewer moving parts)
+        
+        Noise Simulation Implementation:
+        --------------------------------
+        
+        We model photonic noise by adjusting the expectation value:
+        
+        1. Photon loss per gate:
+           P_survive = (1 - loss_rate)^num_gates
+           Measured value reduced by survival probability
+        
+        2. Mode mismatch:
+           Effective gate fidelity reduced
+           Two-qubit gate fidelity: 95-98% (vs 99% for superconducting)
+           Adds random noise to measurement
+        
+        3. Detector inefficiency:
+           Fraction of measurements lost
+           Increases shot noise in expectation value
+        
+        Args:
+            circuit_func (callable): Quantum circuit function to execute
+            num_qubits (int): Number of qubits in circuit
+            num_gates (int): Approximate number of gates in circuit
+        
+        Returns:
+            float: Expectation value with photonic noise applied
+        
+        Note:
+            This is a simplified noise model. Real photonic systems have more
+            complex noise correlations, but this captures the dominant effects
+            for QAOA simulations.
+        
+        References:
+            - Slussarenko & Pryde, "Photonic quantum information processing" (2019)
+            - Qiang et al., "Large-scale silicon quantum photonics" (2018)
+            - Madsen et al., "Quantum computational advantage with photons" (2022)
+        """
+        # Extract photonic noise parameters
+        photon_loss_rate = self.noise_model['photon_loss_rate']
+        detection_efficiency = self.noise_model['detection_efficiency']
+        two_qubit_fidelity = self.noise_model['two_qubit_gate_fidelity']
+        measurement_fidelity = self.noise_model['measurement_fidelity']
+        
+        # 1. Model photon loss through circuit
+        # Photons can be lost at any gate, accumulates multiplicatively
+        photon_survival_prob = (1 - photon_loss_rate) ** num_gates
+        
+        # 2. Model mode mismatch (gate imperfections)
+        # Estimate number of two-qubit gates (rough: ~30% of total gates)
+        num_two_qubit_gates = int(num_gates * 0.3)
+        # Each imperfect two-qubit gate adds noise
+        mode_mismatch_factor = two_qubit_fidelity ** num_two_qubit_gates
+        
+        # 3. Model detector inefficiency
+        # Effective measurement rate reduced
+        effective_detection = detection_efficiency * measurement_fidelity
+        
+        # Combined noise factor
+        # These multiply because they are independent error sources
+        total_noise_factor = (
+            photon_survival_prob *      # Photon loss
+            mode_mismatch_factor *      # Gate imperfections
+            effective_detection         # Detection errors
+        )
+        
+        # Execute the circuit
+        expectation = circuit_func()
+        
+        # Apply noise model to expectation value
+        # Lost photons and detector inefficiency reduce signal strength
+        noisy_expectation = expectation * total_noise_factor
+        
+        # Add measurement shot noise (photon counting statistics)
+        # Standard error in expectation value: σ ~ 1/√shots
+        shot_noise_std = 1.0 / np.sqrt(self.shots)
+        noise = np.random.normal(0, shot_noise_std)
+        noisy_expectation += noise
+        
+        logger.debug(
+            f"Photonic noise applied: "
+            f"Survival={photon_survival_prob:.4f}, "
+            f"Fidelity={mode_mismatch_factor:.4f}, "
+            f"Detection={effective_detection:.4f}, "
+            f"Total factor={total_noise_factor:.4f}"
+        )
+        
+        return noisy_expectation
+    
+    def _simulate_room_temperature_effects(
+        self,
+        circuit_depth: int,
+        num_qubits: int
+    ) -> Dict[str, float]:
+        """
+        Model room temperature operation effects for photonic quantum computers.
+        
+        Room Temperature Quantum Computing: The Photonic Advantage
+        ===========================================================
+        
+        One of the most significant advantages of photonic quantum computing is
+        the ability to operate at room temperature (~300K) rather than requiring
+        cryogenic cooling to ~20 millikelvin like superconducting qubits.
+        
+        Why Room Temperature Operation is Possible:
+        -------------------------------------------
+        
+        The Physics:
+        ------------
+        
+        1. **Energy Gap vs Thermal Energy**:
+        
+           For a quantum system to be stable against thermal excitations:
+               E_gap >> k_B * T
+           
+           Superconducting qubits:
+               - Energy gap: ~200 MHz = 4 μeV
+               - At 300K: k_B*T = 26 meV
+               - Ratio: E_gap / (k_B*T) ≈ 0.00015 << 1
+               - Result: DESTROYED by thermal noise at room temp!
+               - Solution: Cool to 20 mK where k_B*T = 2 μeV
+        
+           Photonic qubits (1550 nm telecom wavelength):
+               - Energy: E = hν = 0.8 eV = 800,000 μeV
+               - At 300K: k_B*T = 26 meV = 26,000 μeV
+               - Ratio: E / (k_B*T) ≈ 30 >> 1
+               - Thermal excitation prob: exp(-30) ≈ 10^-13
+               - Result: Essentially ZERO thermal excitation!
+        
+        2. **Decoherence Mechanisms**:
+        
+           Superconducting qubits:
+               - Store information in material excitations
+               - Material interacts with environment
+               - Phonons, two-level systems, magnetic field noise
+               - T1 (energy relaxation): 50-100 μs
+               - T2 (dephasing): 50-100 μs
+               - Worse at higher temperatures
+        
+           Photonic qubits:
+               - Information encoded in photon state (polarization, path, time)
+               - Photons don't interact with environment (bosons!)
+               - No decoherence during propagation in vacuum/fiber
+               - T1, T2 → ∞ for photons in flight
+               - Only decohere at measurement
+        
+        3. **Isolation from Environment**:
+        
+           Superconducting qubits:
+               - Embedded in chip substrate
+               - Capacitively/inductively coupled to environment
+               - Sensitive to electromagnetic noise
+               - Need extensive shielding and filtering
+        
+           Photonic qubits:
+               - Confined to waveguides (glass/silicon)
+               - Minimal interaction with substrate
+               - Immune to electric/magnetic fields
+               - Natural isolation
+        
+        Practical Advantages for Edge Computing:
+        ----------------------------------------
+        
+        1. **No Cryogenic Infrastructure**:
+           ❌ No dilution refrigerator ($500K+)
+           ❌ No liquid helium supply
+           ❌ No vibration isolation tables
+           ❌ No vacuum pumps
+           ✓ Standard electronics cooling (air/liquid)
+        
+        2. **Energy Consumption**:
+           Superconducting system:
+               - Dilution fridge: ~10-20 kW continuous
+               - Control electronics: ~1 kW
+               - Total: ~11-21 kW for ~50 qubits
+               - Efficiency: ~200-400 W per qubit!
+        
+           Photonic system:
+               - Laser sources: ~100-500 mW per channel
+               - Detectors: ~10-100 mW each
+               - Control electronics: ~100 W
+               - Total: ~1-2 W for ~50 qubits
+               - Efficiency: ~20-40 mW per qubit!
+               - **~10,000× more energy efficient!**
+        
+        3. **Form Factor**:
+           Superconducting:
+               - Refrigerator: 2m × 2m × 3m
+               - Weight: ~1000 kg
+               - Needs lab space
+        
+           Photonic:
+               - Chip: 1cm × 1cm × 0.5mm
+               - With packaging: 10cm × 10cm × 5cm
+               - Weight: <1 kg
+               - **Portable!**
+        
+        4. **Deployment Time**:
+           Superconducting:
+               - Cooldown: 24-48 hours
+               - Warmup for maintenance: 24-48 hours
+               - Downtime for repairs: days
+        
+           Photonic:
+               - Startup: <1 minute (laser stabilization)
+               - Maintenance: hot-swappable components
+               - Downtime: minutes
+               - **>1000× faster deployment**
+        
+        Trade-offs (Why Everyone Doesn't Use Photonic):
+        -----------------------------------------------
+        
+        Challenges:
+        ❌ Photon loss (0.5-2% per gate vs 0.1% superconducting)
+        ❌ Two-qubit gates harder (need Hong-Ou-Mandel interference)
+        ❌ Deterministic photon sources challenging
+        ❌ Scaling to many qubits requires many photons
+        ❌ No long-term quantum memory (photons always moving)
+        
+        Advantages:
+        ✓ Room temperature operation
+        ✓ No decoherence during computation
+        ✓ Natural networking (fiber optics)
+        ✓ Lower energy consumption
+        ✓ Smaller form factor
+        ✓ Faster deployment
+        
+        For Edge Computing Specifically:
+        --------------------------------
+        
+        Edge devices need:
+        ✓ Low power (battery operated)
+        ✓ Small size (embedded systems)
+        ✓ Reliable (minimal maintenance)
+        ✓ Fast startup (on-demand computation)
+        ✓ Cost-effective (commodity hardware)
+        
+        Photonic QPU wins on ALL these metrics!
+        
+        Coherence Time Modeling:
+        ------------------------
+        
+        Effective coherence times for photonic systems:
+        
+        1. During propagation: T_coherence → ∞
+           (photons don't decohere in vacuum/waveguide)
+        
+        2. During storage (if needed): T_storage ~ 1 μs - 1 ms
+           (limited by cavity finesse, absorption)
+        
+        3. Effective coherence for QAOA:
+           - Circuit execution time: ~1-10 μs per gate
+           - Total circuit time: circuit_depth × 1 μs
+           - Loss-limited: effective_time ~ 1/(loss_rate × gate_rate)
+        
+        We model "effective coherence" as being limited by photon loss,
+        not by decoherence. This is fundamentally different from
+        superconducting systems!
+        
+        Args:
+            circuit_depth (int): Number of gates in circuit
+            num_qubits (int): Number of qubits
+        
+        Returns:
+            Dict[str, float]: Room temperature operation characteristics
+                {
+                    'operating_temperature_k': 300.0,
+                    'thermal_excitation_prob': ~10^-13,
+                    'effective_coherence_time_us': loss-limited,
+                    'circuit_execution_time_us': estimate,
+                    'thermal_photon_rate': ~0.001,
+                    'cooling_power_w': ~0,
+                    'system_power_w': low,
+                }
+        
+        Note:
+            These are idealized values. Real systems have additional
+            considerations like laser stability, temperature control
+            for phase stability, etc.
+        
+        References:
+            - O'Brien et al., "Photonic quantum technologies" (2009)
+            - Rudolph, "Why I am optimistic about photonic quantum computing" (2017)
+            - Arute et al., "Quantum supremacy using superconducting processor" (2019)
+              (for superconducting comparison)
+        """
+        # Operating temperature (room temperature!)
+        operating_temp_k = 300.0  # ~27°C, comfortable room temperature
+        
+        # Thermal photon rate at telecom wavelengths
+        # Blackbody radiation at 1550 nm and 300K
+        # n_thermal = 1/(exp(hν/kT) - 1) ≈ exp(-hν/kT) for hν >> kT
+        wavelength_nm = 1550  # Telecom C-band
+        photon_energy_ev = 1240 / wavelength_nm  # E = hc/λ in eV
+        thermal_energy_ev = 8.617e-5 * operating_temp_k  # k_B*T in eV
+        
+        thermal_excitation_prob = np.exp(-photon_energy_ev / thermal_energy_ev)
+        # Result: ~10^-13, essentially zero!
+        
+        # Thermal photon rate (blackbody at telecom wavelength)
+        thermal_photon_rate = self.noise_model.get('thermal_photon_rate', 0.001)
+        
+        # Effective coherence time (limited by photon loss, not decoherence!)
+        # In photonic systems, "coherence time" is really "photon survival time"
+        photon_loss_rate = self.noise_model['photon_loss_rate']
+        gate_time_us = 0.1  # Typical: ~100 ns per gate
+        
+        # Time until photon likely lost: T_loss = 1/(loss_rate * gate_rate)
+        effective_coherence_time_us = 1.0 / (photon_loss_rate / gate_time_us) if photon_loss_rate > 0 else float('inf')
+        
+        # Circuit execution time
+        circuit_execution_time_us = circuit_depth * gate_time_us
+        
+        # Power consumption (NO cryogenic cooling needed!)
+        # Photonic system components:
+        cooling_power_w = 0.0  # No cryogenic cooling!
+        
+        # Power breakdown:
+        laser_power_w = num_qubits * 0.1  # ~100 mW per photon source
+        detector_power_w = num_qubits * 0.05  # ~50 mW per detector
+        control_electronics_w = 10.0  # Classical control system
+        thermal_stabilization_w = 5.0  # Keep chip at constant temp (±0.1K)
+        
+        total_system_power_w = (
+            laser_power_w +
+            detector_power_w +
+            control_electronics_w +
+            thermal_stabilization_w
+        )
+        
+        # Compare to superconducting (would need ~10-20 kW for dilution fridge)
+        superconducting_equivalent_power_w = 15000.0  # 15 kW typical
+        power_advantage_factor = superconducting_equivalent_power_w / total_system_power_w
+        
+        characteristics = {
+            'operating_temperature_k': operating_temp_k,
+            'thermal_excitation_prob': float(thermal_excitation_prob),
+            'thermal_photon_rate': thermal_photon_rate,
+            'effective_coherence_time_us': effective_coherence_time_us,
+            'circuit_execution_time_us': circuit_execution_time_us,
+            'cooling_power_w': cooling_power_w,
+            'laser_power_w': laser_power_w,
+            'detector_power_w': detector_power_w,
+            'control_electronics_w': control_electronics_w,
+            'thermal_stabilization_w': thermal_stabilization_w,
+            'total_system_power_w': total_system_power_w,
+            'superconducting_equivalent_power_w': superconducting_equivalent_power_w,
+            'power_advantage_factor': power_advantage_factor,
+            'wavelength_nm': wavelength_nm,
+            'photon_energy_ev': photon_energy_ev,
+        }
+        
+        logger.debug(
+            f"Room temperature operation: "
+            f"T={operating_temp_k}K, "
+            f"Power={total_system_power_w:.2f}W, "
+            f"Advantage={power_advantage_factor:.0f}×"
+        )
+        
+        return characteristics
+    
+    def _calculate_photonic_energy_consumption(
+        self,
+        circuit_depth: int,
+        num_qubits: int,
+        num_shots: int
+    ) -> Dict[str, float]:
+        """
+        Calculate energy consumption for photonic quantum processing unit.
+        
+        Energy Efficiency: Photonic vs Superconducting Quantum Computers
+        =================================================================
+        
+        Energy consumption is CRITICAL for edge computing applications where
+        devices run on batteries or have limited power budgets. Photonic quantum
+        computers have a massive advantage here.
+        
+        Energy Budget Breakdown:
+        ------------------------
+        
+        SUPERCONDUCTING QUANTUM COMPUTER:
+        ----------------------------------
+        
+        1. Cryogenic Cooling (Dilution Refrigerator):
+           - Target temperature: 10-20 millikelvin (0.01-0.02 K)
+           - Cooling stages: 4K → 1K → 100mK → 10mK
+           - Power consumption: 10-20 kW continuous
+           - This is the DOMINANT cost!
+        
+        2. Why So Much Power for Cooling?
+           - Carnot efficiency: η = T_cold / (T_hot - T_cold)
+           - To remove 1 W at 20 mK: need ~15,000 W at 300K!
+           - Multiple cooling stages, each inefficient
+           - Heat leaks from cables, radiation
+           - Pulse tube coolers, compressors
+        
+        3. Control Electronics:
+           - Microwave generators: ~500 W
+           - Arbitrary waveform generators: ~200 W
+           - Digital logic: ~200 W
+           - Subtotal: ~1 kW
+        
+        4. Total for 50-qubit system:
+           - Cooling: 15 kW
+           - Electronics: 1 kW
+           - Total: ~16 kW continuous
+           - Per qubit: ~300 W
+           - Per gate: ~300 W × 1 μs = 0.3 mJ
+        
+        PHOTONIC QUANTUM COMPUTER:
+        --------------------------
+        
+        1. Photon Sources (Lasers):
+           - Continuous-wave lasers: ~100 mW per channel
+           - Alternative: On-chip quantum dots: ~10 mW
+           - For 50 qubits: 50 × 0.1 W = 5 W
+        
+        2. Detectors (Single Photon Detectors):
+           - Superconducting nanowires: ~50 mW each (still need cooling)
+           - Avalanche photodiodes: ~20 mW each (room temp!)
+           - Transition edge sensors: ~10 mW each
+           - For 50 qubits: 50 × 0.05 W = 2.5 W
+        
+        3. Chip Thermal Stabilization:
+           - Optical path lengths sensitive to temperature
+           - Need stability: ±0.1 K
+           - Peltier cooler: ~5 W
+        
+        4. Control Electronics:
+           - Phase modulators: ~50 W
+           - Timing electronics: ~30 W
+           - Computer: ~20 W
+           - Subtotal: ~100 W
+        
+        5. Total for 50-qubit system:
+           - Lasers: 5 W
+           - Detectors: 2.5 W
+           - Thermal: 5 W
+           - Electronics: 100 W
+           - Total: ~113 W continuous
+           - Per qubit: ~2 W
+           - Per gate: ~2 W × 0.1 μs = 0.2 μJ
+        
+        COMPARISON:
+        -----------
+        
+        |                    | Superconducting | Photonic | Advantage |
+        |--------------------|----------------|----------|-----------|
+        | System power       | 16,000 W       | 113 W    | 140×      |
+        | Per qubit          | 300 W          | 2 W      | 150×      |
+        | Per gate           | 0.3 mJ         | 0.2 μJ   | 1500×     |
+        | Cooling needed     | Yes (10kW+)    | No       | ∞         |
+        | Startup time       | 24-48 hours    | <1 min   | 2000×     |
+        | Portability        | Lab-bound      | Portable | Yes!      |
+        
+        For Edge Computing:
+        -------------------
+        
+        Battery capacity example: 100 Wh (typical laptop battery)
+        
+        Superconducting QPU:
+           - Runtime: 100 Wh / 16 kW = 0.00625 hours = 22 seconds
+           - NOT VIABLE for battery operation!
+        
+        Photonic QPU:
+           - Runtime: 100 Wh / 113 W = 0.88 hours = 53 minutes
+           - VIABLE for battery operation!
+        
+        Solar power example: 100 W panel
+        
+        Superconducting QPU:
+           - Would need: 160 panels (16 m² of panels)
+           - NOT VIABLE for solar!
+        
+        Photonic QPU:
+           - Would need: 1.13 panels (~1.2 m²)
+           - VIABLE for solar!
+        
+        Energy Scaling:
+        ---------------
+        
+        Energy per QAOA circuit execution:
+        
+        E_circuit = P_system × t_circuit
+        
+        Where:
+            P_system = total system power
+            t_circuit = circuit_depth × gate_time + readout_time
+        
+        For photonic system:
+            t_gate ~ 100 ns (optical switching time)
+            t_readout ~ 1 μs (detector response)
+            P_lasers scales with num_qubits
+            P_detectors scales with num_qubits
+        
+        Total energy for full QAOA solve:
+            E_total = num_shots × num_iterations × E_circuit
+        
+        Why Photonic Scales Better:
+        ----------------------------
+        
+        1. **Linear power scaling**:
+           - Power ∝ num_qubits (one laser + detector per qubit)
+           - Superconducting: cooling power increases with chip size
+        
+        2. **No cooling overhead**:
+           - Photonic: power goes into computation
+           - Superconducting: 90% power goes into cooling
+        
+        3. **Faster gates**:
+           - Photonic: 100 ns (speed of light!)
+           - Superconducting: 1 μs (RC time constants)
+           - 10× faster → 10× less energy per gate
+        
+        4. **On-demand operation**:
+           - Photonic: turn on/off instantly
+           - Superconducting: must keep cold continuously
+           - Idle power: photonic ~0W, superconducting ~15kW
+        
+        Implementation:
+        ---------------
+        
+        We calculate energy consumption by modeling:
+        1. Photon generation energy (lasers)
+        2. Circuit operation energy (modulators, switches)
+        3. Detection energy (single photon detectors)
+        4. Control electronics energy
+        5. Thermal stabilization energy
+        
+        Args:
+            circuit_depth (int): Number of gates in circuit
+            num_qubits (int): Number of qubits
+            num_shots (int): Number of circuit executions
+        
+        Returns:
+            Dict[str, float]: Energy consumption breakdown
+                {
+                    'total_energy_mj': total energy in millijoules,
+                    'energy_per_shot_mj': energy per circuit execution,
+                    'energy_per_gate_uj': energy per gate operation,
+                    'laser_energy_mj': photon generation,
+                    'detector_energy_mj': measurement,
+                    'control_energy_mj': classical electronics,
+                    'thermal_energy_mj': temperature stabilization,
+                    'superconducting_equivalent_mj': what it would cost in superconducting,
+                    'energy_advantage_factor': how much better than superconducting,
+                }
+        
+        Note:
+            These are estimates based on current photonic technology.
+            Actual values depend on specific implementation details.
+        
+        References:
+            - Paesani et al., "Generation and sampling of quantum states of light" (2019)
+            - Pitsios et al., "Photonic simulation of entanglement growth" (2017)
+            - Arute et al., "Quantum supremacy using superconducting processor" (2019)
+        """
+        # Time per gate operation
+        gate_time_us = 0.1  # 100 nanoseconds (optical switching time)
+        readout_time_us = 1.0  # 1 microsecond (detector response time)
+        
+        # Time for one circuit execution
+        circuit_time_us = circuit_depth * gate_time_us + readout_time_us
+        circuit_time_s = circuit_time_us * 1e-6
+        
+        # Power consumption components (in Watts)
+        
+        # 1. Laser power: Need to generate photons
+        # Continuous-wave laser: ~100 mW per qubit
+        laser_power_w = num_qubits * 0.1  # 100 mW per photon source
+        
+        # 2. Detector power: Single photon detectors
+        # Modern APDs or SNSPDs: ~50 mW per detector
+        detector_power_w = num_qubits * 0.05  # 50 mW per detector
+        
+        # 3. Control electronics: Phase modulators, switches, control logic
+        # Electro-optic modulators: ~50 W total
+        # Digital control: ~50 W
+        control_power_w = 100.0
+        
+        # 4. Thermal stabilization: Keep chip at constant temperature
+        # Peltier cooling to maintain ±0.1K stability
+        thermal_power_w = 5.0
+        
+        # Total system power
+        total_power_w = (
+            laser_power_w +
+            detector_power_w +
+            control_power_w +
+            thermal_power_w
+        )
+        
+        # Energy for all shots
+        total_time_s = num_shots * circuit_time_s
+        total_energy_j = total_power_w * total_time_s
+        total_energy_mj = total_energy_j * 1000  # Convert to millijoules
+        
+        # Energy per shot
+        energy_per_shot_j = total_power_w * circuit_time_s
+        energy_per_shot_mj = energy_per_shot_j * 1000
+        
+        # Energy per gate
+        gate_time_s = gate_time_us * 1e-6
+        energy_per_gate_j = total_power_w * gate_time_s
+        energy_per_gate_uj = energy_per_gate_j * 1e6  # Convert to microjoules
+        
+        # Energy breakdown
+        laser_fraction = laser_power_w / total_power_w
+        detector_fraction = detector_power_w / total_power_w
+        control_fraction = control_power_w / total_power_w
+        thermal_fraction = thermal_power_w / total_power_w
+        
+        laser_energy_mj = total_energy_mj * laser_fraction
+        detector_energy_mj = total_energy_mj * detector_fraction
+        control_energy_mj = total_energy_mj * control_fraction
+        thermal_energy_mj = total_energy_mj * thermal_fraction
+        
+        # Compare to superconducting system
+        # Superconducting: ~16 kW for similar qubit count
+        superconducting_power_w = 16000.0
+        superconducting_energy_j = superconducting_power_w * total_time_s
+        superconducting_energy_mj = superconducting_energy_j * 1000
+        
+        # Advantage factor
+        energy_advantage = superconducting_energy_mj / total_energy_mj if total_energy_mj > 0 else float('inf')
+        
+        energy_breakdown = {
+            'total_energy_mj': float(total_energy_mj),
+            'energy_per_shot_mj': float(energy_per_shot_mj),
+            'energy_per_gate_uj': float(energy_per_gate_uj),
+            'laser_energy_mj': float(laser_energy_mj),
+            'detector_energy_mj': float(detector_energy_mj),
+            'control_energy_mj': float(control_energy_mj),
+            'thermal_energy_mj': float(thermal_energy_mj),
+            'total_power_w': float(total_power_w),
+            'circuit_time_us': float(circuit_time_us),
+            'total_time_s': float(total_time_s),
+            'superconducting_equivalent_mj': float(superconducting_energy_mj),
+            'energy_advantage_factor': float(energy_advantage),
+        }
+        
+        logger.debug(
+            f"Photonic energy: {total_energy_mj:.2f} mJ "
+            f"({energy_advantage:.0f}× better than superconducting)"
+        )
+        
+        return energy_breakdown
+    
+    def add_oam_encoding_advantage(
+        self,
+        num_qubits: int,
+        oam_dimension: int = 4
+    ) -> Dict[str, Any]:
+        """
+        Simulate benefits of Orbital Angular Momentum (OAM) encoding for photonic qubits.
+        
+        Orbital Angular Momentum (OAM): Beyond Binary Qubits
+        =====================================================
+        
+        Standard quantum computing uses qubits: 2-level quantum systems (|0⟩ and |1⟩).
+        But photons have additional degrees of freedom that can encode more information!
+        
+        Photon Encoding Options:
+        ------------------------
+        
+        1. **Polarization** (Standard, 2 states):
+           - Horizontal |H⟩ or Vertical |V⟩
+           - Easy to generate and measure
+           - Limited to qubits (d=2)
+           - Used in most quantum communication
+        
+        2. **Path/Spatial Mode** (2+ states):
+           - Which waveguide/path the photon takes
+           - Can have many paths (d=2,3,4,...)
+           - Requires many waveguides
+           - Used in integrated photonic circuits
+        
+        3. **Time-Bin** (2+ states):
+           - When the photon arrives (early/late)
+           - Multiple time slots possible
+           - Robust against environmental noise
+           - Used in quantum key distribution
+        
+        4. **Orbital Angular Momentum - OAM** (MANY states!):
+           - Photon's helical phase structure
+           - Infinite dimensional Hilbert space!
+           - Practical: d=10-100 or more
+           - This is what makes OAM special!
+        
+        What is Orbital Angular Momentum?
+        ----------------------------------
+        
+        Classical analogy:
+        - Imagine water going down a drain - it spirals
+        - Photons can have this spiral/helical wavefront
+        - Different spiral patterns = different OAM states
+        
+        Mathematical description:
+        - Electric field: E(r,φ) = E₀(r) × exp(i·ℓ·φ)
+        - ℓ is the OAM quantum number (integer: ...-2,-1,0,+1,+2,...)
+        - φ is azimuthal angle
+        - Each ℓ is an orthogonal state!
+        
+        Visual (side view of wavefront):
+        
+        ℓ=0 (normal):     ℓ=1 (spiral):    ℓ=2 (double spiral):
+        ─────────         ╱      ╲         ╱  ╲  ╱  ╲
+        ─────────        │  ↻     │       │ ↻ │ ↻  │
+        ─────────         ╲      ╱         ╲  ╱  ╲  ╱
+        (plane wave)      (helix)          (double helix)
+        
+        Why OAM is Powerful:
+        --------------------
+        
+        1. **High-Dimensional Hilbert Space**:
+           - Qubits: H = C² (2 dimensions)
+           - Qutrits: H = C³ (3 dimensions)
+           - OAM: H = C^d where d can be 10, 50, 100+!
+        
+        2. **More Information Per Photon**:
+           - Qubit: 1 bit per photon
+           - OAM (d=8): log₂(8) = 3 bits per photon
+           - OAM (d=32): log₂(32) = 5 bits per photon
+           - 3-5× more information density!
+        
+        3. **Reduced Physical Resources**:
+           - 100 qubits in polarization: need 100 photons
+           - 100 "qubits" in OAM (d=32): need 100/5 = 20 photons
+           - 5× fewer photons needed!
+        
+        4. **Compatibility with Other Encodings**:
+           - Can use OAM AND polarization simultaneously
+           - Hybrid qubit-qudit systems
+           - Even more information per photon
+        
+        Advantages for Quantum Computing:
+        ---------------------------------
+        
+        1. **Fewer Physical Qubits**:
+           - A 4-dimensional qudit = 2 qubits worth of info
+           - A 16-dimensional qudit = 4 qubits worth of info
+           - Reduces circuit complexity
+        
+        2. **Native High-Dimensional Gates**:
+           - Some operations easier in high-d space
+           - Quantum error correction codes benefit
+           - Certain algorithms more efficient
+        
+        3. **Longer Coherence**:
+           - OAM robust against some noise sources
+           - Different OAM modes don't couple easily
+           - Better isolation than path encoding
+        
+        4. **Networking Advantages**:
+           - Multiple OAM channels through same fiber
+           - Wavelength-independent (can combine with WDM)
+           - Higher capacity quantum links
+        
+        Challenges (Why Not Everyone Uses OAM):
+        ---------------------------------------
+        
+        ❌ **Generation Complexity**:
+           - Need spatial light modulators or spiral phase plates
+           - Quantum dot sources challenging for high ℓ
+           - Mode purity requirements strict
+        
+        ❌ **Detection Complexity**:
+           - Need to measure which OAM mode
+           - Requires mode sorters or holographic detection
+           - More complex than simple polarization measurement
+        
+        ❌ **Gate Operations**:
+           - Two-photon gates harder with OAM
+           - Mode coupling must be controlled
+           - Fewer demonstrated gate operations
+        
+        ❌ **Propagation Issues**:
+           - Atmospheric turbulence scrambles OAM
+           - Fiber dispersion couples modes
+           - Need special fibers or free space
+        
+        For Edge Computing:
+        -------------------
+        
+        OAM encoding particularly valuable for:
+        
+        ✓ **Resource-Constrained Devices**:
+          - Fewer photons needed → less laser power
+          - Fewer detectors needed → lower cost
+          - More compact systems possible
+        
+        ✓ **Communication**:
+          - Higher channel capacity for quantum networks
+          - Edge devices can communicate more efficiently
+          - Better use of fiber infrastructure
+        
+        ✓ **Specific Algorithms**:
+          - Quantum simulation of high-d systems
+          - Certain optimization problems
+          - Quantum machine learning (features as qudits)
+        
+        Simplified Simulation:
+        ----------------------
+        
+        We simulate OAM encoding by:
+        
+        1. **Information Density**:
+           - Calculate equivalent qubit count: n_qubits_eff = n_photons × log₂(d)
+           - More information with fewer physical resources
+        
+        2. **Resource Reduction**:
+           - Fewer photons needed → less photon loss
+           - Fewer gates needed → faster circuits
+           - Lower energy consumption
+        
+        3. **Noise Model**:
+           - OAM modes can couple (mode mixing)
+           - Detection errors different from polarization
+           - But overall more robust in some scenarios
+        
+        Note: Real OAM systems are MUCH more complex!
+        This is a simplified model to capture the key advantages.
+        
+        Args:
+            num_qubits (int): Number of logical qubits needed
+            oam_dimension (int): Dimension of OAM encoding (d)
+                               Typical: 2 (qubit), 3 (qutrit), 4, 8, 16, 32
+                               Practical limit: ~100 with current technology
+        
+        Returns:
+            Dict[str, Any]: OAM encoding advantages
+                {
+                    'oam_dimension': d,
+                    'bits_per_photon': log₂(d),
+                    'num_photons_needed': n_qubits / log₂(d),
+                    'photon_reduction_factor': reduction vs standard,
+                    'effective_qubit_count': logical qubits available,
+                    'information_density_factor': improvement,
+                    'estimated_gate_reduction': fewer gates needed,
+                    'energy_savings_factor': power reduction,
+                }
+        
+        Example:
+            >>> # Compare standard polarization vs OAM encoding
+            >>> # For 100 logical qubits
+            >>> 
+            >>> # Standard polarization (d=2):
+            >>> # Need 100 photons, each carries 1 bit
+            >>> 
+            >>> simulator.add_oam_encoding_advantage(100, oam_dimension=2)
+            >>> # Returns: {'num_photons_needed': 100, ...}
+            >>> 
+            >>> # OAM encoding (d=16):
+            >>> # Need 25 photons, each carries 4 bits
+            >>> simulator.add_oam_encoding_advantage(100, oam_dimension=16)
+            >>> # Returns: {'num_photons_needed': 25, 'photon_reduction_factor': 4, ...}
+        
+        References:
+            - Allen et al., "Orbital angular momentum of light" (1992)
+            - Wang et al., "Terabit free-space data transmission employing OAM" (2012)
+            - Erhard et al., "Twisted photons: new quantum perspectives" (2018)
+            - Malik et al., "Multi-photon entanglement in high dimensions" (2016)
+        """
+        # Validate OAM dimension
+        if oam_dimension < 2:
+            raise ValueError("OAM dimension must be at least 2 (qubit)")
+        
+        if oam_dimension > 100:
+            logger.warning(
+                f"OAM dimension {oam_dimension} is very high. "
+                f"Current technology typically supports d≤32 reliably."
+            )
+        
+        # Information capacity per photon
+        bits_per_photon = np.log2(oam_dimension)
+        
+        # Number of photons needed (vs qubits)
+        # Each photon with dimension d carries log₂(d) qubits worth of info
+        num_photons_needed = int(np.ceil(num_qubits / bits_per_photon))
+        
+        # Reduction factor vs standard polarization encoding
+        photon_reduction_factor = num_qubits / num_photons_needed
+        
+        # Effective qubit count we can represent
+        effective_qubit_count = num_photons_needed * bits_per_photon
+        
+        # Information density improvement
+        information_density_factor = bits_per_photon
+        
+        # Estimated gate reduction
+        # Fewer photons → fewer two-photon gates needed
+        # Rough estimate: gates scale as O(n²) for connectivity
+        standard_gate_count_estimate = num_qubits ** 1.5  # Rough scaling
+        oam_gate_count_estimate = num_photons_needed ** 1.5
+        gate_reduction_factor = standard_gate_count_estimate / oam_gate_count_estimate
+        
+        # Energy savings
+        # Fewer photons → less laser power needed
+        # Fewer gates → faster circuits → less time
+        # Combined effect
+        energy_savings_factor = photon_reduction_factor * np.sqrt(gate_reduction_factor)
+        
+        # OAM mode coupling (noise consideration)
+        # Higher d → more modes → more coupling chances
+        # But also more orthogonal states → better isolation
+        mode_coupling_factor = 1.0 / np.sqrt(oam_dimension)  # Simplified model
+        
+        oam_advantages = {
+            'oam_dimension': int(oam_dimension),
+            'bits_per_photon': float(bits_per_photon),
+            'num_qubits_requested': int(num_qubits),
+            'num_photons_needed': int(num_photons_needed),
+            'photon_reduction_factor': float(photon_reduction_factor),
+            'effective_qubit_count': float(effective_qubit_count),
+            'information_density_factor': float(information_density_factor),
+            'estimated_gate_reduction': float(gate_reduction_factor),
+            'energy_savings_factor': float(energy_savings_factor),
+            'mode_coupling_factor': float(mode_coupling_factor),
+            'encoding_type': 'OAM (Orbital Angular Momentum)',
+            'technology_readiness': self._get_oam_trl(oam_dimension),
+        }
+        
+        logger.info(
+            f"OAM encoding (d={oam_dimension}): "
+            f"{num_photons_needed} photons for {num_qubits} qubits "
+            f"({photon_reduction_factor:.1f}× reduction)"
+        )
+        
+        return oam_advantages
+    
+    def _get_oam_trl(self, dimension: int) -> str:
+        """
+        Get Technology Readiness Level for OAM encoding of given dimension.
+        
+        Args:
+            dimension: OAM dimension
+        
+        Returns:
+            str: TRL description
+        """
+        if dimension <= 2:
+            return "TRL 9 - Proven technology (standard qubits)"
+        elif dimension <= 4:
+            return "TRL 7-8 - Demonstrated in operational environment"
+        elif dimension <= 16:
+            return "TRL 5-6 - Laboratory demonstration"
+        elif dimension <= 32:
+            return "TRL 3-4 - Proof of concept"
+        else:
+            return "TRL 1-2 - Basic research"
+    
     def solve(
         self,
         problem: Any,
