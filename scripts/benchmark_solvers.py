@@ -197,14 +197,15 @@ def run_benchmark(
                 
                 # Generate problem instance
                 problem = MaxCutProblem(num_nodes=size)
-                problem.generate(edge_density=edge_density, seed=int(time.time() * 1000) + rep)
+                # problem.generate(edge_density=edge_density, seed=int(time.time() * 1000) + rep)
+                problem.generate(edge_density=edge_density, seed=32)
                 
                 # Track problem metadata
                 problem_metadata = {
-                    'num_nodes': size,
-                    'num_edges': problem.graph.number_of_edges(),
-                    'edge_density': edge_density,
-                    'graph_density': problem.get_metadata()['graph_density']
+                    "num_nodes": size,
+                    "num_edges": problem.graph.number_of_edges(),
+                    "edge_density": edge_density,
+                    "graph_density": problem.get_metadata()['graph_density']
                 }
                 
                 # ----------------------------------------------------------------
@@ -237,8 +238,8 @@ def run_benchmark(
                         'solution': result_greedy['solution'],
                         'metadata': {
                             **problem_metadata,
-                            'method': 'greedy',
-                            'iterations': result_greedy.get('iterations', 1)
+                            "method": 'greedy',
+                            "iterations": result_greedy.get('iterations', 1)
                         },
                         'timestamp': datetime.now(),
                         'repetition': rep
@@ -285,8 +286,8 @@ def run_benchmark(
                         'solution': result_sa['solution'],
                         'metadata': {
                             **problem_metadata,
-                            'method': 'simulated_annealing',
-                            'iterations': result_sa.get('iterations', 1000)
+                            "method": 'simulated_annealing',
+                            "iterations": result_sa.get('iterations', 1000)
                         },
                         'timestamp': datetime.now(),
                         'repetition': rep
@@ -332,12 +333,12 @@ def run_benchmark(
                         'solution': result_quantum['solution'],
                         'metadata': {
                             **problem_metadata,
-                            'qaoa_layers': QAOA_LAYERS,
-                            'max_iterations': QAOA_MAX_ITERATIONS,
-                            'shots': QUANTUM_SHOTS,
-                            'final_expectation': result_quantum['metadata'].get('final_expectation'),
-                            'converged': result_quantum['metadata'].get('converged', False),
-                            'iterations': result_quantum.get('iterations', 0)
+                            "qaoa_layers": QAOA_LAYERS,
+                            "max_iterations": QAOA_MAX_ITERATIONS,
+                            "shots": QUANTUM_SHOTS,
+                            "final_expectation": result_quantum['metadata'].get('final_expectation'),
+                            "converged": result_quantum['metadata'].get('converged', False),
+                            "iterations": result_quantum.get('iterations', 0)
                         },
                         'timestamp': datetime.now(),
                         'repetition': rep
@@ -521,9 +522,10 @@ def analyze_results(csv_path: Optional[Path] = None) -> Dict[str, Any]:
     logger.info(f"Loading results from: {csv_path}")
     df = pd.read_csv(csv_path)
     
-    # Convert metadata from string to dict if needed
-    if 'metadata' in df.columns and isinstance(df['metadata'].iloc[0], str):
-        df['metadata'] = df['metadata'].apply(json.loads)
+    # # Convert metadata from string to dict if needed
+    # if 'metadata' in df.columns and isinstance(df['metadata'].iloc[0], str):
+    #     df['metadata'] = df['metadata'].replace('\'', '"')
+    #     df['metadata'] = df['metadata'].apply(json.loads)
     
     analysis = {}
     
@@ -537,11 +539,11 @@ def analyze_results(csv_path: Optional[Path] = None) -> Dict[str, Any]:
     analysis['avg_time_by_solver'] = avg_time
     
     for size in sorted(df['problem_size'].unique()):
-        logger.info(f"  Size {size:3d}: ", end="")
+        logger.info(f"  Size {size:3d}: ")
         for solver in ['classical_greedy', 'classical_sa', 'quantum']:
             if solver in avg_time.columns:
                 time_val = avg_time.loc[size, solver]
-                logger.info(f"{solver:20s}: {time_val:8.2f}ms  ", end="")
+                logger.info(f"{solver:20s}: {time_val:8.2f}ms  ")
         logger.info("")
     
     # -------------------------------------------------------------------------
@@ -554,11 +556,11 @@ def analyze_results(csv_path: Optional[Path] = None) -> Dict[str, Any]:
     analysis['avg_energy_by_solver'] = avg_energy
     
     for size in sorted(df['problem_size'].unique()):
-        logger.info(f"  Size {size:3d}: ", end="")
+        logger.info(f"  Size {size:3d}: ")
         for solver in ['classical_greedy', 'classical_sa', 'quantum']:
             if solver in avg_energy.columns:
                 energy_val = avg_energy.loc[size, solver]
-                logger.info(f"{solver:20s}: {energy_val:8.2f}mJ  ", end="")
+                logger.info(f"{solver:20s}: {energy_val:8.2f}mJ  ")
         logger.info("")
     
     # -------------------------------------------------------------------------
@@ -571,11 +573,11 @@ def analyze_results(csv_path: Optional[Path] = None) -> Dict[str, Any]:
     analysis['avg_quality_by_solver'] = avg_quality
     
     for size in sorted(df['problem_size'].unique()):
-        logger.info(f"  Size {size:3d}: ", end="")
+        logger.info(f"  Size {size:3d}: ")
         for solver in ['classical_greedy', 'classical_sa', 'quantum']:
             if solver in avg_quality.columns:
                 quality_val = avg_quality.loc[size, solver]
-                logger.info(f"{solver:20s}: {quality_val:6.4f}  ", end="")
+                logger.info(f"{solver:20s}: {quality_val:6.4f}  ")
         logger.info("")
     
     # -------------------------------------------------------------------------
