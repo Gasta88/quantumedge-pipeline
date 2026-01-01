@@ -109,3 +109,6 @@ site/
 
 # Validation Scripts
 validation.py
+
+# Benchmarking
+benchmark_results/*
