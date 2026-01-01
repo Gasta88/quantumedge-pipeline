@@ -238,18 +238,18 @@ class QuantumSimulator(SolverBase):
         
         # Check if Pennylane is available
         if not PENNYLANE_AVAILABLE:
-            raise SolverConfigurationError(
+            raise SolverException(
                 "Pennylane is not installed. Install with: pip install pennylane"
             )
         
         # Validate configuration
         if shots < 1:
-            raise SolverConfigurationError(
+            raise SolverException(
                 f"shots must be positive integer, got {shots}"
             )
         
         if max_circuit_depth < 1:
-            raise SolverConfigurationError(
+            raise SolverException(
                 f"max_circuit_depth must be positive, got {max_circuit_depth}"
             )
         
@@ -2748,7 +2748,9 @@ class QuantumSimulator(SolverBase):
             bitstrings = []
             for _ in range(self.shots):
                 sample = sampling_circuit(optimal_params)
-                bitstring = [(1 - int(s)) // 2 for s in sample]
+                shot_arrays = np.array(sample).T 
+                for shot in shot_arrays:
+                   bitstring = [(1 - int(bit)) // 2 for bit in shot]
                 bitstrings.append(bitstring)
         else:
             # Single shot (convert single sample)
@@ -2788,6 +2790,10 @@ class QuantumSimulator(SolverBase):
         total_circuit_executions = iteration_count[0] * self.shots + self.shots  # optimization + sampling
         energy_per_circuit_mj = 0.02 * (2 ** min(n_qubits, 10))  # Exponential scaling (capped)
         estimated_energy_mj = total_circuit_executions * energy_per_circuit_mj
+        
+        # Before building metadata, extract Hamiltonian coefficients for circuit depth calculation
+        hamiltonian = self._qubo_to_hamiltonian(qubo_matrix)
+        h_coeffs, h_ops = hamiltonian.terms()
         
         # Prepare metadata
         metadata = {
