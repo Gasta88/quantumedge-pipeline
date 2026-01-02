@@ -635,8 +635,11 @@ class JobOrchestrator:
             'edge_profile': edge_profile
         }
         
+        # Execute classical solver (always run, even if quantum fails)
+        classical_success = False
+        classical_result = None
+        
         try:
-            # Execute classical solver
             if progress_callback:
                 progress_callback("classical", 0.2)
             
@@ -655,9 +658,25 @@ class JobOrchestrator:
                 classical_result['solution_quality'] = classical_validation['quality']
             
             result['classical'] = classical_result
+            classical_success = True
             logger.info(f"[{job_id}] Classical complete: cost={classical_result.get('cost', 'N/A')}")
             
-            # Execute quantum solver
+        except Exception as e:
+            error_msg = str(e)
+            logger.error(f"[{job_id}] Classical solver failed: {error_msg}")
+            result['classical'] = {
+                'success': False,
+                'error': error_msg,
+                'time_ms': 0,
+                'cost': float('inf'),
+                'solution_quality': 0.0
+            }
+        
+        # Execute quantum solver (isolated from classical failure)
+        quantum_success = False
+        quantum_result = None
+        
+        try:
             if progress_callback:
                 progress_callback("quantum", 0.6)
             
@@ -676,34 +695,67 @@ class JobOrchestrator:
                 quantum_result['solution_quality'] = quantum_validation['quality']
             
             result['quantum'] = quantum_result
+            quantum_success = True
             logger.info(f"[{job_id}] Quantum complete: cost={quantum_result.get('cost', 'N/A')}")
             
-            # Calculate comparison metrics
+        except Exception as e:
+            error_msg = str(e)
+            logger.error(f"[{job_id}] Quantum solver failed: {error_msg}")
+            result['quantum'] = {
+                'success': False,
+                'error': error_msg,
+                'time_ms': 0,
+                'cost': float('inf'),
+                'solution_quality': 0.0
+            }
+        
+        # Calculate comparison metrics (even if one solver failed)
+        try:
             if progress_callback:
                 progress_callback("compare", 0.9)
             
-            comparison = self._calculate_comparison_metrics(classical_result, quantum_result)
+            # Use results even if one failed (will show which one succeeded)
+            comparison = self._calculate_comparison_metrics(
+                result['classical'], 
+                result['quantum']
+            )
             result.update(comparison)
             
-            result['success'] = True
+            # Determine overall success
+            # Consider it successful if at least one solver succeeded
+            result['success'] = classical_success or quantum_success
+            
+            if not result['success']:
+                result['error'] = "Both classical and quantum solvers failed"
+                logger.error(f"[{job_id}] Both solvers failed")
+            elif not classical_success:
+                result['partial_success'] = True
+                result['note'] = "Classical solver failed, only quantum results available"
+                logger.warning(f"[{job_id}] Only quantum solver succeeded")
+            elif not quantum_success:
+                result['partial_success'] = True
+                result['note'] = "Quantum solver failed, only classical results available"
+                logger.warning(f"[{job_id}] Only classical solver succeeded")
             
             if progress_callback:
                 progress_callback("complete", 1.0)
             
             logger.info(f"[{job_id}] Comparative execution complete")
-            logger.info(f"[{job_id}] Recommendation: {result['recommendation']}")
+            if result['success']:
+                logger.info(f"[{job_id}] Recommendation: {result.get('recommendation', 'N/A')}")
             
             return result
             
         except Exception as e:
+            # Catastrophic failure in comparison calculation
             error_msg = str(e)
             error_trace = traceback.format_exc()
             
             result['success'] = False
-            result['error'] = error_msg
+            result['error'] = f"Comparison calculation failed: {error_msg}"
             result['error_traceback'] = error_trace
             
-            logger.error(f"[{job_id}] Comparative execution failed: {error_msg}")
+            logger.error(f"[{job_id}] Comparison calculation failed: {error_msg}")
             logger.debug(f"[{job_id}] Traceback:\n{error_trace}")
             
             return result
@@ -993,32 +1045,76 @@ class JobOrchestrator:
         """
         Calculate comparison metrics between classical and quantum results.
         
+        Handles cases where one or both solvers may have failed.
+        
         Args:
-            classical_result: Classical solver result
-            quantum_result: Quantum solver result
+            classical_result: Classical solver result (may contain 'error')
+            quantum_result: Quantum solver result (may contain 'error')
         
         Returns:
-            Comparison metrics dictionary
+            Comparison metrics dictionary with:
+            - speedup_factor: float (or None if cannot calculate)
+            - quantum_advantage_ratio: float (alias for speedup_factor)
+            - energy_ratio: float (or None if cannot calculate)
+            - quality_diff: float (or None if cannot calculate)
+            - recommendation: str ('classical', 'quantum', 'unknown')
+            - recommendation_reason: str
         """
         comparison = {}
+        
+        # Check if solvers succeeded
+        classical_success = classical_result.get('success', True) and 'error' not in classical_result
+        quantum_success = quantum_result.get('success', True) and 'error' not in quantum_result
+        
+        # Handle case where one or both failed
+        if not classical_success and not quantum_success:
+            comparison['speedup_factor'] = None
+            comparison['quantum_advantage_ratio'] = None
+            comparison['energy_ratio'] = None
+            comparison['quality_diff'] = None
+            comparison['recommendation'] = 'unknown'
+            comparison['recommendation_reason'] = 'Both solvers failed - cannot compare'
+            return comparison
+        
+        if not classical_success:
+            comparison['speedup_factor'] = None
+            comparison['quantum_advantage_ratio'] = None
+            comparison['energy_ratio'] = None
+            comparison['quality_diff'] = None
+            comparison['recommendation'] = 'quantum'
+            comparison['recommendation_reason'] = 'Classical solver failed, quantum succeeded'
+            return comparison
+        
+        if not quantum_success:
+            comparison['speedup_factor'] = None
+            comparison['quantum_advantage_ratio'] = None
+            comparison['energy_ratio'] = None
+            comparison['quality_diff'] = None
+            comparison['recommendation'] = 'classical'
+            comparison['recommendation_reason'] = 'Quantum solver failed, classical succeeded'
+            return comparison
+        
+        # Both succeeded - calculate normal metrics
         
         # Speedup factor
         classical_time = classical_result.get('time_ms', 0)
         quantum_time = quantum_result.get('time_ms', 0)
         
-        if quantum_time > 0:
+        if quantum_time > 0 and classical_time > 0:
             comparison['speedup_factor'] = classical_time / quantum_time
+            comparison['quantum_advantage_ratio'] = classical_time / quantum_time
         else:
-            comparison['speedup_factor'] = float('inf')
+            comparison['speedup_factor'] = None
+            comparison['quantum_advantage_ratio'] = None
         
         # Energy ratio
         classical_energy = classical_result.get('energy_consumed_mj', 0)
         quantum_energy = quantum_result.get('energy_consumed_mj', 0)
         
-        if quantum_energy > 0:
+        if quantum_energy > 0 and classical_energy > 0:
             comparison['energy_ratio'] = classical_energy / quantum_energy
         else:
-            comparison['energy_ratio'] = float('inf')
+            comparison['energy_ratio'] = None
         
         # Quality difference
         classical_quality = classical_result.get('solution_quality', 0)
@@ -1036,12 +1132,20 @@ class JobOrchestrator:
         elif quantum_cost < classical_cost * 0.95:  # Quantum significantly better
             recommendation = 'quantum'
             reason = f"Quantum found better solution (cost: {quantum_cost:.4f} vs {classical_cost:.4f})"
-        elif quantum_time < classical_time * 0.8:  # Quantum faster
-            recommendation = 'quantum'
-            reason = f"Quantum faster with similar quality (speedup: {comparison['speedup_factor']:.2f}x)"
-        elif classical_time < quantum_time * 0.8:  # Classical faster
-            recommendation = 'classical'
-            reason = f"Classical faster with similar quality"
+        elif quantum_time > 0 and classical_time > 0:
+            if quantum_time < classical_time * 0.8:  # Quantum faster
+                recommendation = 'quantum'
+                speedup = comparison.get('speedup_factor', 0)
+                if speedup:
+                    reason = f"Quantum faster with similar quality (speedup: {speedup:.2f}x)"
+                else:
+                    reason = "Quantum faster with similar quality"
+            elif classical_time < quantum_time * 0.8:  # Classical faster
+                recommendation = 'classical'
+                reason = f"Classical faster with similar quality"
+            else:
+                recommendation = 'tie'
+                reason = "Both solvers performed similarly"
         else:
             recommendation = 'tie'
             reason = "Both solvers performed similarly"
