@@ -45,7 +45,7 @@ result = orchestrator.execute_job(
 
 print(f"Solver used: {result['solver_used']}")
 print(f"Solution quality: {result['solution_quality']:.2%}")
-print(f"Execution time: {result['execution_time_ms']} ms")
+print(f"Execution time: {result['time_ms']} ms")
 
 # Compare classical vs quantum
 comparison = orchestrator.execute_comparative(
@@ -53,8 +53,8 @@ comparison = orchestrator.execute_comparative(
     edge_profile='aerospace'
 )
 
-print(f"Classical time: {comparison['classical']['execution_time_ms']} ms")
-print(f"Quantum time: {comparison['quantum']['execution_time_ms']} ms")
+print(f"Classical time: {comparison['classical']['time_ms']} ms")
+print(f"Quantum time: {comparison['quantum']['time_ms']} ms")
 print(f"Winner: {comparison['recommendation']}")
 
 # Batch processing
@@ -99,8 +99,8 @@ import traceback
 from contextlib import contextmanager
 
 from src.analyzer.problem_analyzer import ProblemAnalyzer
-from src.router.quantum_router import QuantumRouter
-from src.router.edge_simulator import EdgeEnvironment, JobRequirements
+from src.router.quantum_router import QuantumRouter,RoutingStrategy
+from src.router.edge_simulator import EdgeEnvironment, DeploymentProfile
 from src.solvers.classical_solver import ClassicalSolver
 from src.solvers.quantum_simulator import QuantumSimulator
 from src.monitoring.db_manager import DatabaseManager
@@ -163,7 +163,8 @@ class JobOrchestrator:
         enable_validation: bool = True,
         default_timeout_s: float = 300.0,
         max_retries: int = 2,
-        db_url: Optional[str] = None
+        db_url: Optional[str] = None,
+        strategy: str = 'balanced'
     ):
         """
         Initialize the job orchestrator with all required components.
@@ -174,6 +175,7 @@ class JobOrchestrator:
             default_timeout_s: Default execution timeout in seconds
             max_retries: Maximum retry attempts for transient failures
             db_url: Database connection URL (required if enable_db=True)
+            strategy: Routing strategy ('balanced', 'performance', 'efficiency')
         
         Raises:
             ValueError: If enable_db=True but db_url is not provided
@@ -185,10 +187,21 @@ class JobOrchestrator:
         self.enable_validation = enable_validation
         self.default_timeout_s = default_timeout_s
         self.max_retries = max_retries
+        self.strategy = strategy
         
         # Initialize components
         self.analyzer = ProblemAnalyzer()
-        self.router = QuantumRouter()
+        if self.strategy == 'balanced':
+            routing_strategy = RoutingStrategy.BALANCED
+        elif self.strategy == 'energy_optimized':
+            routing_strategy = RoutingStrategy.ENERGY_OPTIMIZED
+        elif self.strategy == 'latency_optimized':
+            routing_strategy = RoutingStrategy.LATENCY_OPTIMIZED
+        elif self.strategy == 'quality_optimized':
+            routing_strategy = RoutingStrategy.QUALITY_OPTIMIZED
+        else:
+            raise ValueError(f"Invalid routing strategy: {self.strategy}")
+        self.router = QuantumRouter(strategy=routing_strategy)
         self.classical_solver = ClassicalSolver()
         self.quantum_solver = QuantumSimulator()
         
@@ -279,7 +292,7 @@ class JobOrchestrator:
                 # Execution results
                 'solution': Any,
                 'cost': float,
-                'execution_time_ms': float,
+                'time_ms': float,
                 'energy_consumed_mj': float,
                 
                 # Validation
@@ -381,13 +394,19 @@ class JobOrchestrator:
             logger.info(f"[{job_id}] Stage B: Making routing decision...")
             
             # Get edge environment
-            edge_env = EdgeEnvironment.from_profile(edge_profile)
+            if edge_profile == 'aerospace':
+                edge_env = EdgeEnvironment(DeploymentProfile.AEROSPACE)
+            elif edge_profile == 'mobile':
+                edge_env = EdgeEnvironment(DeploymentProfile.MOBILE)
+            elif edge_profile == 'ground_server':
+                edge_env = EdgeEnvironment(DeploymentProfile.GROUND_SERVER)
+            else:
+                raise ValueError(f"Invalid edge profile: {edge_profile}")
             
             # Route problem
             routing_result = self.router.route_problem(
                 problem=problem,
-                edge_env=edge_env,
-                strategy=strategy
+                edge_env=edge_env
             )
             
             solver_choice = routing_result['decision']
@@ -431,7 +450,7 @@ class JobOrchestrator:
             
             logger.info(f"[{job_id}] Solver execution complete")
             logger.info(f"[{job_id}] Cost: {solver_result.get('cost', 'N/A')}")
-            logger.info(f"[{job_id}] Time: {solver_result.get('execution_time_ms', 'N/A')} ms")
+            logger.info(f"[{job_id}] Time: {solver_result.get('time_ms', 'N/A')} ms")
             
             # ================================================================
             # STAGE D: VALIDATE RESULT
@@ -479,7 +498,7 @@ class JobOrchestrator:
             
             # Update statistics
             self._jobs_executed += 1
-            self._total_execution_time_ms += result['execution_time_ms']
+            self._total_execution_time_ms += result['time_ms']
             
             # ================================================================
             # STAGE F: RETURN COMPREHENSIVE RESULT
@@ -550,7 +569,7 @@ class JobOrchestrator:
                 'classical': {
                     'solution': Any,
                     'cost': float,
-                    'execution_time_ms': float,
+                    'time_ms': float,
                     'energy_consumed_mj': float,
                     'is_valid': bool,
                     'solution_quality': float,
@@ -561,7 +580,7 @@ class JobOrchestrator:
                 'quantum': {
                     'solution': Any,
                     'cost': float,
-                    'execution_time_ms': float,
+                    'time_ms': float,
                     'energy_consumed_mj': float,
                     'is_valid': bool,
                     'solution_quality': float,
@@ -592,9 +611,9 @@ class JobOrchestrator:
             >>> comparison = orchestrator.execute_comparative(problem)
             >>> 
             >>> print(f"Classical: {comparison['classical']['cost']:.4f} "
-            ...       f"in {comparison['classical']['execution_time_ms']:.2f} ms")
+            ...       f"in {comparison['classical']['time_ms']:.2f} ms")
             >>> print(f"Quantum: {comparison['quantum']['cost']:.4f} "
-            ...       f"in {comparison['quantum']['execution_time_ms']:.2f} ms")
+            ...       f"in {comparison['quantum']['time_ms']:.2f} ms")
             >>> print(f"Winner: {comparison['recommendation']}")
         """
         job_id = str(uuid4())
@@ -749,7 +768,7 @@ class JobOrchestrator:
             >>> successful = [r for r in results if r['success']]
             >>> print(f"Success rate: {len(successful)}/{len(results)}")
             >>> 
-            >>> avg_time = sum(r['execution_time_ms'] for r in successful) / len(successful)
+            >>> avg_time = sum(r['time_ms'] for r in successful) / len(successful)
             >>> print(f"Average execution time: {avg_time:.2f} ms")
         """
         if not problems:
@@ -850,14 +869,14 @@ class JobOrchestrator:
                 result = self.classical_solver.solve(
                     problem=problem,
                     method='auto',
-                    timeout=timeout_s
+                    timeout_seconds=timeout_s
                 )
             
             elif solver_choice == 'quantum':
                 result = self.quantum_solver.solve(
                     problem=problem,
-                    method='qaoa',
-                    timeout=timeout_s
+                    # method='qaoa',
+                    # timeout=timeout_s
                 )
             
             elif solver_choice == 'hybrid':
@@ -866,7 +885,7 @@ class JobOrchestrator:
                 
                 quantum_result = self.quantum_solver.solve(
                     problem=problem,
-                    method='qaoa',
+                    # method='qaoa',
                     timeout=timeout_s / 2
                 )
                 
@@ -984,8 +1003,8 @@ class JobOrchestrator:
         comparison = {}
         
         # Speedup factor
-        classical_time = classical_result.get('execution_time_ms', 0)
-        quantum_time = quantum_result.get('execution_time_ms', 0)
+        classical_time = classical_result.get('time_ms', 0)
+        quantum_time = quantum_result.get('time_ms', 0)
         
         if quantum_time > 0:
             comparison['speedup_factor'] = classical_time / quantum_time
