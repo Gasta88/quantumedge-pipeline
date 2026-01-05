@@ -26,7 +26,7 @@ Usage:
 
 from typing import Dict, Any
 from src.problems.maxcut import MaxCutProblem
-from src.problems.portfolio import PortfolioOptimizationProblem
+from src.problems.portfolio import PortfolioProblem
 
 
 # =============================================================================
@@ -221,7 +221,7 @@ def load_demo_scenario(scenario_name: str) -> Dict[str, Any]:
         problem = MaxCutProblem(num_nodes=problem_size)
         problem.generate(**problem_params)
     elif problem_type == "Portfolio":
-        problem = PortfolioOptimizationProblem(num_assets=problem_size)
+        problem = PortfolioProblem(num_assets=problem_size, num_selected=problem_size//2)
         problem.generate(**problem_params)
     else:
         raise ValueError(f"Unknown problem type: {problem_type}")

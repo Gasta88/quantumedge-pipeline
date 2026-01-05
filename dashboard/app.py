@@ -27,7 +27,7 @@ sys.path.insert(0, str(project_root))
 from src.api.orchestrator import JobOrchestrator
 from src.problems.maxcut import MaxCutProblem
 from src.problems.tsp import TSPProblem
-from src.problems.portfolio import PortfolioOptimizationProblem
+from src.problems.portfolio import PortfolioProblem
 from src.config import settings
 from dashboard.utils import (
     plot_graph_solution,
@@ -239,7 +239,7 @@ def page_submit_problem():
                         problem = TSPProblem(num_cities=problem_size)
                         problem.generate(seed=seed)
                     elif problem_type == "Portfolio":
-                        problem = PortfolioOptimizationProblem(num_assets=problem_size)
+                        problem = PortfolioProblem(num_assets=problem_size)
                         problem.generate(seed=seed)
                     
                     # Prepare job configuration
@@ -492,16 +492,16 @@ def page_results_analysis():
         
         # Routing decision explanation
         st.markdown("### 🧭 Routing Decision")
-        routing_info = result.get('routing_decision', {})
-        st.info(f"**Decision:** {routing_info.get('chosen_solver', 'N/A')}")
-        st.write(routing_info.get('reasoning', 'No routing information available.'))
+        chosen_solver = result.get('routing_decision', 'No chosen solver.')
+        st.info(f"**Decision:** {chosen_solver}")
+        st.write(result.get('reasoning', 'No routing information available.'))
         
-        # Alternative options
-        alternatives = routing_info.get('alternatives', [])
-        if alternatives:
-            with st.expander("🔍 Alternative Options Considered"):
-                for alt in alternatives:
-                    st.write(f"- {alt}")
+        # # Alternative options
+        # alternatives = routing_info.get('alternatives', [])
+        # if alternatives:
+        #     with st.expander("🔍 Alternative Options Considered"):
+        #         for alt in alternatives:
+        #             st.write(f"- {alt}")
     
     # Solution visualization
     st.markdown("---")
@@ -509,6 +509,7 @@ def page_results_analysis():
     try:
         problem = job_config['problem']
         solution = result.get('solution', result.get('classical', {}).get('solution'))
+
         
         if solution:
             fig = plot_graph_solution(problem, solution)

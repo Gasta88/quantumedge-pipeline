@@ -24,7 +24,7 @@ import numpy as np
 from datetime import datetime
 
 
-def plot_graph_solution(problem, solution: Dict[str, Any]) -> go.Figure:
+def plot_graph_solution(problem, solution: List[int]) -> go.Figure:
     """
     Visualize graph problem with solution coloring.
     
@@ -54,7 +54,7 @@ def plot_graph_solution(problem, solution: Dict[str, Any]) -> go.Figure:
     >>> fig.show()
     """
     problem_type = problem.__class__.__name__
-    
+
     if problem_type == "MaxCutProblem":
         return _plot_maxcut_solution(problem, solution)
     elif problem_type == "TSPProblem":
@@ -73,7 +73,7 @@ def plot_graph_solution(problem, solution: Dict[str, Any]) -> go.Figure:
         return fig
 
 
-def _plot_maxcut_solution(problem, solution: Dict[str, Any]) -> go.Figure:
+def _plot_maxcut_solution(problem, solution: List[int]) -> go.Figure:
     """Plot MaxCut problem solution with colored partitions."""
     # Build NetworkX graph from problem
     G = nx.Graph()
@@ -93,7 +93,7 @@ def _plot_maxcut_solution(problem, solution: Dict[str, Any]) -> go.Figure:
     pos = nx.spring_layout(G, k=2/np.sqrt(num_nodes), iterations=50, seed=42)
     
     # Get partition from solution
-    partition = solution.get('partition', [0] * num_nodes)
+    partition = solution if len(solution) == 0 else  [0] * num_nodes
     
     # Create edge traces
     edge_traces = []
@@ -172,13 +172,13 @@ def _plot_maxcut_solution(problem, solution: Dict[str, Any]) -> go.Figure:
     return fig
 
 
-def _plot_tsp_solution(problem, solution: Dict[str, Any]) -> go.Figure:
+def _plot_tsp_solution(problem, solution: List[int]) -> go.Figure:
     """Plot TSP problem solution with tour path."""
     # Get tour from solution
-    tour = solution.get('tour', list(range(problem.num_cities)))
+    tour = solution if len(solution) == 0 else  list(range(problem.num_cities))
     
     # Get city positions
-    positions = problem.city_positions
+    positions = problem.coordinates
     
     # Create figure
     fig = go.Figure()
@@ -209,7 +209,7 @@ def _plot_tsp_solution(problem, solution: Dict[str, Any]) -> go.Figure:
     ))
     
     # Calculate total distance
-    total_distance = solution.get('total_distance', 0)
+    total_distance = problem.calculate_cost(tour)
     
     fig.update_layout(
         title=f"TSP Solution: Total Distance = {total_distance:.2f}",
@@ -223,10 +223,10 @@ def _plot_tsp_solution(problem, solution: Dict[str, Any]) -> go.Figure:
     return fig
 
 
-def _plot_portfolio_solution(problem, solution: Dict[str, Any]) -> go.Figure:
+def _plot_portfolio_solution(problem, solution: List[int]) -> go.Figure:
     """Plot Portfolio problem solution with asset allocation."""
     # Get allocation from solution
-    allocation = solution.get('allocation', [0] * problem.num_assets)
+    allocation = solution if len(solution) == 0 else  [0] * problem.num_assets
     
     # Create bar chart
     fig = go.Figure()
