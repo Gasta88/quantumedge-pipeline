@@ -1,25 +1,19 @@
-# ⚡ QuantumEdge Pipeline
+# QuantumEdge Pipeline
 
-[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
-[![Poetry](https://img.shields.io/badge/dependency%20management-poetry-blue)](https://python-poetry.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
----
-
-## 📖 Overview
+## Overview
 
 ### What is QuantumEdge Pipeline?
 
-**QuantumEdge Pipeline** is a production-ready quantum-classical hybrid optimization framework designed specifically for **edge computing environments**. It intelligently routes computational workloads between classical and quantum solvers based on real-time problem analysis, resource constraints, and performance requirements.
+**QuantumEdge Pipeline** is a production-ready quantum-classical hybrid optimization framework designed specifically for **edge computing environments**. It routes computational workloads between classical and quantum solvers based on real-time problem analysis, resource constraints, and performance requirements.
 
-### Why It Matters (Especially for Rotonium)
+### Why It Matters (Use-case for Rotonium)
 
-As quantum computing transitions from research labs to real-world deployment, organizations need **practical tools** to evaluate, integrate, and deploy quantum solutions. QuantumEdge Pipeline bridges this gap by:
+Organizations need **practical tools** to evaluate, integrate, and deploy quantum solutions. QuantumEdge Pipeline bridges this gap by:
 
-- 🎯 **Proving viability early**: Demonstrates quantum advantage in edge scenarios before hardware is available
-- 🚀 **Reducing integration time**: Provides developer-friendly APIs and workflows for quantum-classical hybrid systems
-- 🌐 **Edge-first architecture**: Optimized for resource-constrained environments (aerospace, defense, mobile edge)
-- 🔬 **Hardware-agnostic design**: Seamlessly transition from simulation to real quantum hardware
+-  **Proving viability early**: Demonstrates quantum advantage in edge scenarios before hardware is available
+-  **Reducing integration time**: Provides APIs and workflows for quantum-classical hybrid systems
+-  **Edge-first architecture**: Optimized for resource-constrained environments (aerospace, defense, mobile edge as arbitrary examples)
+-  **Hardware-agnostic design**: Transition from simulation to real quantum hardware
 
 For **Rotonium**, this pipeline showcases how their photonic quantum processors can be integrated into edge deployments, particularly for:
 - NATO DIANA defense applications
@@ -27,19 +21,19 @@ For **Rotonium**, this pipeline showcases how their photonic quantum processors 
 - Space-based quantum computing scenarios
 - Room-temperature quantum operations at the edge
 
-### 🎯 Key Features
+###  Key Features
 
-- **🧠 Intelligent Problem Analysis**: Automatic characterization and routing of optimization problems
-- **⚡ Smart Solver Selection**: Dynamic decision-making between classical, quantum, and hybrid approaches
-- **📊 Comparative Benchmarking**: Side-by-side performance evaluation of multiple solver strategies
-- **🌍 Edge-Optimized**: Designed for SWaP (Size, Weight, and Power) constrained environments
-- **🔌 Production-Ready API**: FastAPI-based RESTful interface with OpenAPI documentation
-- **📈 Real-Time Monitoring**: Comprehensive metrics, dashboards, and performance tracking
-- **🐳 Docker-First Deployment**: Complete containerized infrastructure for rapid deployment
+- **Problem Analysis**: Automatic characterization and routing of optimization problems
+- **Solver Selection**: Dynamic decision-making between classical, quantum, and hybrid approaches
+- **Comparative Benchmarking**: Side-by-side performance evaluation of multiple solver strategies
+- **Edge-Optimized**: Designed for SWaP (Size, Weight, and Power) constrained environments
+- **Accessible API**: FastAPI-based RESTful interface with OpenAPI documentation
+- **Real-Time Monitoring**: Comprehensive metrics, dashboards, and performance tracking
+- **Docker-First Deployment**: Complete containerized infrastructure for rapid deployment
 
 ---
 
-## 🚀 Quick Start
+##  Quick Start
 
 ### Prerequisites
 
@@ -54,10 +48,10 @@ Before you begin, ensure you have the following installed:
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/your-org/quantumedge-pipeline.git
+git clone https://github.com/Gasta88/quantumedge-pipeline.git
 cd quantumedge-pipeline
 
-# 2. Copy environment configuration
+# 2. Copy environment configuration and configure it
 cp .env.example .env
 
 # 3. Start all services with Docker Compose
@@ -100,7 +94,7 @@ Once services are running:
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ### High-Level System Diagram
 
@@ -193,7 +187,7 @@ Once services are running:
 
 ---
 
-## 💡 Usage Examples
+##  Usage Examples
 
 ### 1. Submit a Problem
 
@@ -361,11 +355,11 @@ print(f"Solution: {result.solution}")
 
 ---
 
-## 🔬 Rotonium Integration
+##  Rotonium Integration
 
 ### How This Supports Rotonium's Vision
 
-QuantumEdge Pipeline is purpose-built to showcase and accelerate **Rotonium's photonic quantum processors** in edge computing scenarios. Key alignment:
+QuantumEdge Pipeline showcase and accelerate **Rotonium's photonic quantum processors** in edge computing scenarios. Key alignment:
 
 #### 1. **Photonic QPU Simulation**
 - **Room Temperature Operation**: Simulation models that reflect photonic quantum computing advantages
@@ -425,11 +419,11 @@ For detailed integration guide, see [**docs/rotonium-integration.md**](docs/roto
 
 ---
 
-## 🎬 Demo Scenarios
+##  Demo Scenarios
 
 The pipeline includes three production-ready demo scenarios showcasing real-world applications:
 
-### 1. 🛩️ Aerospace Routing Optimization
+### 1.  Aerospace Routing Optimization
 
 **Scenario**: Optimize flight paths for a fleet of drones performing surveillance over a region.
 
@@ -449,7 +443,7 @@ docker-compose exec api python scripts/demos/aerospace_routing.py
 - Quantum QAOA: 12.1s, 94% optimal
 - Hybrid VQE: 5.7s, 91% optimal ✅ **Winner**
 
-### 2. 💰 Financial Portfolio Optimization
+### 2.  Financial Portfolio Optimization
 
 **Scenario**: Asset allocation for risk-constrained portfolio with correlation matrix.
 
@@ -470,7 +464,7 @@ docker-compose exec api python scripts/demos/portfolio_optimization.py
 - Sharpe ratio: 1.87
 - Quantum routing: Recommended classical solver (problem structure favors MILP)
 
-### 3. 🧠 ML Graph Partitioning
+### 3.  ML Graph Partitioning
 
 **Scenario**: Partition neural network graph for distributed training across edge devices.
 
@@ -498,11 +492,10 @@ Visit the dashboard at http://localhost:8501 to see:
 - Performance comparison charts
 - Historical metrics and trends
 
-*(Note: For GIF demos and screenshots, see `/docs/screenshots/` directory)*
 
 ---
 
-## 🛠️ Development
+##  Development
 
 ### Project Structure
 
@@ -576,39 +569,8 @@ docker-compose exec api poetry run pytest tests/integration/ -v
 docker-compose exec api poetry run pytest tests/performance/ --benchmark-only
 ```
 
-### Contributing Guidelines
-
-We welcome contributions! Please follow these steps:
-
-1. **Fork the repository** and clone your fork
-2. **Create a feature branch**: `git checkout -b feature/your-feature-name`
-3. **Follow code style**: Run `black` and `ruff` before committing
-   ```bash
-   poetry run black src/ tests/
-   poetry run ruff check src/ tests/ --fix
-   ```
-4. **Write tests**: Maintain >80% coverage for new code
-5. **Update documentation**: Add docstrings and update relevant docs
-6. **Commit with clear messages**: Use conventional commits format
-   ```
-   feat: add Rotonium hardware integration
-   fix: resolve routing decision for sparse graphs
-   docs: update API documentation for comparative endpoint
-   ```
-7. **Push and create PR**: Submit pull request with detailed description
-8. **Respond to review**: Address feedback promptly
-
-### Code Quality Standards
-
-- **Type Hints**: All functions must have type annotations
-- **Docstrings**: Use Google-style docstrings
-- **Test Coverage**: Minimum 80% for new code
-- **Linting**: Pass `ruff` and `mypy` checks
-- **Formatting**: Use `black` with line length 100
-
 ---
-
-## 🔧 Technical Details
+##  Technical Details
 
 ### Solver Algorithms Used
 
@@ -723,43 +685,7 @@ For detailed schema and indexing strategy, see `database/init.sql`.
 
 ---
 
-## 🗺️ Future Roadmap
-
-### Phase 1: Real Hardware Integration (Q1 2025)
-- ✅ Rotonium photonic QPU API integration
-- ✅ IBM Quantum backend support (production)
-- ✅ AWS Braket connector
-- ⏳ Real-time calibration data ingestion
-- ⏳ Hardware noise characterization
-
-### Phase 2: ML-Based Routing (Q2 2025)
-- ⏳ Train routing model on historical performance data
-- ⏳ Reinforcement learning for adaptive routing
-- ⏳ Online learning from user feedback
-- ⏳ Transfer learning across problem domains
-
-### Phase 3: Multi-QPU Orchestration (Q3 2025)
-- ⏳ Parallel problem decomposition across multiple QPUs
-- ⏳ Load balancing for quantum cloud resources
-- ⏳ Hybrid classical-quantum distributed workflows
-- ⏳ Edge-to-cloud quantum orchestration
-
-### Phase 4: Advanced Noise Models (Q4 2025)
-- ⏳ Device-specific noise characterization
-- ⏳ Error mitigation strategies (ZNE, PEC, CDR)
-- ⏳ Noise-aware circuit compilation
-- ⏳ Photonic-specific noise models for Rotonium
-
-### Phase 5: Production Hardening (2026)
-- ⏳ Kubernetes deployment with auto-scaling
-- ⏳ Multi-region deployment support
-- ⏳ Advanced monitoring and alerting (Grafana, PagerDuty)
-- ⏳ SLA guarantees and performance contracts
-- ⏳ Enterprise authentication (OAuth2, SAML)
-
----
-
-## 📚 Resources
+##  Resources
 
 ### Quantum Computing Basics
 - [Qiskit Textbook](https://qiskit.org/textbook/) - Free introductory quantum computing course
@@ -784,7 +710,7 @@ For detailed schema and indexing strategy, see `database/init.sql`.
 
 ---
 
-## 📄 License
+##  License
 
 This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
 
@@ -794,50 +720,7 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 - **FastAPI**: MIT License
 - **Streamlit**: Apache License 2.0
 
----
-
-## 🙏 Acknowledgments
-
-This project stands on the shoulders of giants:
-
-- **IBM Quantum Team** - For pioneering accessible quantum computing with Qiskit
-- **Xanadu AI** - For PennyLane and quantum machine learning frameworks
-- **FastAPI & Starlette** - For modern, high-performance Python web frameworks
-- **Streamlit** - For making data apps incredibly easy to build
-- **NetworkX & SciPy** - For foundational scientific computing tools
-- **Rotonium** - For inspiring edge-first quantum computing vision
-
-Special thanks to the open-source quantum computing community for making this work possible.
 
 ---
 
-## 📧 Contact & Support
-
-### Getting Help
-- **Documentation**: [docs/](docs/) directory contains comprehensive guides
-- **GitHub Issues**: [Report bugs or request features](https://github.com/your-org/quantumedge-pipeline/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/your-org/quantumedge-pipeline/discussions) for questions
-
-### Commercial Inquiries
-For Rotonium partnership, enterprise deployments, or custom integrations:
-- **Email**: partnerships@quantumedge.io
-- **Website**: https://quantumedge.io
-
-### Community
-- **Slack**: Join our [Quantum Edge Computing Slack](https://quantumedge.slack.com)
-- **Twitter**: [@QuantumEdgeDev](https://twitter.com/QuantumEdgeDev)
-- **LinkedIn**: [QuantumEdge Pipeline](https://linkedin.com/company/quantumedge)
-
----
-
-**⚠️ Important Note**: This is a research and development platform designed for evaluation, benchmarking, and integration planning. For production quantum computing workloads with SLA requirements, please contact our team or Rotonium directly for hardware deployment consultation.
-
----
-
-<div align="center">
-
-**Built with ⚛️ by quantum computing enthusiasts for the edge computing future**
-
-[Website](https://quantumedge.io) • [Documentation](docs/) • [GitHub](https://github.com/your-org/quantumedge-pipeline) • [Rotonium](https://rotonium.com)
-
-</div>
+**Important Note**: This is a research and development platform designed for evaluation, benchmarking, and integration planning. 
