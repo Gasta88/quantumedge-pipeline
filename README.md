@@ -68,19 +68,6 @@ docker-compose ps
 # quantumedge-redis     running   0.0.0.0:6379->6379/tcp
 ```
 
-### Run Demo
-
-```bash
-# Initialize database with sample data
-docker-compose exec api python scripts/seed_data.py
-
-# Run comprehensive demo scenarios
-docker-compose exec api python scripts/run_demo.py
-
-# Or run interactive demo via dashboard
-# Navigate to: http://localhost:8501
-```
-
 ### Access Dashboards
 
 Once services are running:
