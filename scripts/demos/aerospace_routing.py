@@ -46,14 +46,12 @@ This demonstration is relevant for:
 """
 
 import sys
-import os
 import time
 import json
 import argparse
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
 from datetime import datetime
-from uuid import uuid4
 import logging
 
 # Add project root to path
@@ -358,7 +356,7 @@ def run_aerospace_demo(
     # Step 2: Analyze problem
     logger.info("[Step 2/5] Analyzing problem characteristics...")
     analyzer = ProblemAnalyzer()
-    analysis = analyzer.analyze(problem)
+    analysis = analyzer.analyze_problem(problem)
     logger.info(f"✓ Problem analyzed")
     logger.info(f"  Problem type: {analysis.problem_type}")
     logger.info(f"  Problem size: {analysis.problem_size}")

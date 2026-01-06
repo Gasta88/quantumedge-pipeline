@@ -15,8 +15,7 @@ full visibility into the quantum-classical routing pipeline.
 import streamlit as st
 import sys
 from pathlib import Path
-from typing import Dict, Any, Optional, List
-from datetime import datetime, timedelta
+from datetime import datetime
 import time
 import json
 
@@ -32,9 +31,7 @@ from src.config import settings
 from dashboard.utils import (
     plot_graph_solution,
     plot_performance_comparison,
-    plot_routing_decision_flow,
-    plot_historical_trends,
-    create_performance_heatmap
+    plot_historical_trends
 )
 from dashboard.demo_scenarios import DEMO_SCENARIOS, load_demo_scenario
 
@@ -645,7 +642,7 @@ def page_system_status():
     st.markdown("### 💾 Database Connection")
     try:
         # Test database connection
-        from src.monitoring.database import DatabaseManager
+        from src.monitoring.db_manager import DatabaseManager
         db = DatabaseManager()
         st.success("✅ Database connection: **HEALTHY**")
         st.info(f"Connected to: {settings.database.host}:{settings.database.port}")

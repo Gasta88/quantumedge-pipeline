@@ -47,14 +47,12 @@ This demonstration is relevant for:
 """
 
 import sys
-import os
 import time
 import json
 import argparse
 from pathlib import Path
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional
 from datetime import datetime
-from uuid import uuid4
 import logging
 
 # Add project root to path

@@ -62,9 +62,7 @@ Example Usage:
 from typing import Dict, Any, List, Optional, Tuple
 import numpy as np
 import networkx as nx
-from itertools import combinations
 import matplotlib.pyplot as plt
-from matplotlib.patches import FancyBboxPatch
 
 from src.problems.problem_base import ProblemBase
 

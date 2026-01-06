@@ -26,14 +26,13 @@ Example Usage:
     curl http://localhost:8000/health
 """
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Request, status
+from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel, Field, validator
-from typing import Dict, Any, List, Optional, Union
+from typing import Dict, Any, List, Optional
 from datetime import datetime
-from uuid import uuid4
 import logging
 import traceback
 import time
@@ -42,7 +41,7 @@ import numpy as np
 # Import application components
 from src.config import settings
 from src.api.orchestrator import JobOrchestrator
-from src.router.quantum_router import QuantumRouter, RoutingStrategy, RoutingPreferences
+from src.router.quantum_router import QuantumRouter, RoutingStrategy
 from src.router.edge_simulator import EdgeEnvironment, DeploymentProfile
 from src.problems.maxcut import MaxCutProblem
 from src.problems.tsp import TSPProblem

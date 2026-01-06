@@ -13,7 +13,6 @@ Usage:
 """
 
 from typing import Dict, List, Optional, Literal
-from pathlib import Path
 from pydantic import Field, field_validator, computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
