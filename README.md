@@ -35,6 +35,8 @@ For **Rotonium**, this pipeline showcases how their photonic quantum processors 
 
 ##  Quick Start
 
+For use of Makefile commands, see [**docs/quickstart.md**](docs/quickstart.md)
+
 ### Prerequisites
 
 Before you begin, ensure you have the following installed:

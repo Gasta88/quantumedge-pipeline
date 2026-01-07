@@ -8,14 +8,14 @@ import numpy as np
 
 # Import modules to test
 from src.solvers.solver_base import (
-    SolverBase, 
+    SolverBase,
     EnergyTracker,
     SolverException,
     SolverConfigurationError,
     InvalidSolutionError
 )
 from src.solvers.classical_solver import ClassicalSolver
-from src.solvers.quantum_simulator import QuantumSimulator
+from src.solvers.quantum_simulator import QuantumSimulator, QuantumSimulatorException
 from src.problems.maxcut import MaxCutProblem
 
 
@@ -91,31 +91,31 @@ class TestSolverBase:
     def test_solver_base_initialization_success(self):
         """Test successful solver base initialization."""
         # Create concrete solver
-        solver = ClassicalSolver(algorithm='greedy')
-        
+        solver = ClassicalSolver(default_method='greedy')
+
         assert solver.solver_type == 'classical'
-        assert solver.solver_name == 'greedy'
+        assert solver.solver_name == 'classical_multi'
         assert solver._energy_tracker is not None
-    
+
     def test_solver_base_initialization_failure(self):
         """Test solver base initialization with invalid parameters."""
         # ClassicalSolver should raise error with invalid algorithm
         with pytest.raises((ValueError, SolverConfigurationError)):
-            ClassicalSolver(algorithm='')
-    
+            ClassicalSolver(default_method='invalid_method')
+
     def test_solver_validate_result_success(self):
         """Test successful solution validation."""
-        solver = ClassicalSolver(algorithm='greedy')
+        solver = ClassicalSolver(default_method='greedy')
         problem = MaxCutProblem(num_nodes=5)
         problem.generate(edge_probability=0.5, seed=42)
-        
+
         # Valid solution
         solution = [0, 1, 0, 1, 0]
         assert solver.validate_result(problem, solution) is True
-    
+
     def test_solver_validate_result_failure(self):
         """Test solution validation failures."""
-        solver = ClassicalSolver(algorithm='greedy')
+        solver = ClassicalSolver(default_method='greedy')
         problem = MaxCutProblem(num_nodes=5)
         problem.generate(edge_probability=0.5, seed=42)
         
@@ -138,7 +138,7 @@ class TestClassicalSolver:
     @pytest.fixture
     def solver(self):
         """Create a classical solver instance."""
-        return ClassicalSolver(algorithm='greedy')
+        return ClassicalSolver(default_method='greedy')
     
     @pytest.fixture
     def problem(self):
@@ -178,7 +178,7 @@ class TestClassicalSolver:
     
     def test_classical_solver_context_manager(self, problem):
         """Test classical solver context manager usage."""
-        with ClassicalSolver(algorithm='greedy') as solver:
+        with ClassicalSolver(default_method='greedy') as solver:
             result = solver.solve(problem)
             assert result is not None
 
@@ -218,8 +218,8 @@ class TestQuantumSimulator:
         """Test quantum simulator with invalid problem."""
         # Non-generated problem
         problem = MaxCutProblem(num_nodes=5)
-        
-        with pytest.raises((ValueError, SolverConfigurationError)):
+
+        with pytest.raises((ValueError, SolverConfigurationError, QuantumSimulatorException)):
             solver.solve(problem)
 
 
@@ -235,7 +235,7 @@ class TestSolverComparison:
     
     def test_standardized_output_format(self, problem):
         """Test that both solvers return standardized format."""
-        classical_solver = ClassicalSolver(algorithm='greedy')
+        classical_solver = ClassicalSolver(default_method='greedy')
         quantum_solver = QuantumSimulator()
         
         classical_result = classical_solver.solve(problem)

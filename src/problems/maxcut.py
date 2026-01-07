@@ -203,47 +203,51 @@ class MaxCutProblem(ProblemBase):
     def validate_solution(self, solution: List[int]) -> bool:
         """
         Validate a MaxCut partition solution.
-        
+
         A valid MaxCut solution is a binary assignment where each node is
         assigned to partition 0 or 1.
-        
+
         Validation checks:
         1. Solution length matches number of nodes
         2. All values are binary (0 or 1)
         3. Problem has been generated
-        
+
         Args:
             solution: Binary partition assignment [0, 1, 0, 1, ...]
                      solution[i] = 0 means node i is in partition S
                      solution[i] = 1 means node i is in partition T
-        
+
         Returns:
             True if solution is valid, False otherwise
-        
+
         Example:
             >>> problem = MaxCutProblem(num_nodes=4)
             >>> problem.generate()
-            >>> 
+            >>>
             >>> valid = [0, 1, 0, 1]
             >>> assert problem.validate_solution(valid)
-            >>> 
+            >>>
             >>> invalid_length = [0, 1, 0]
             >>> assert not problem.validate_solution(invalid_length)
-            >>> 
+            >>>
             >>> invalid_values = [0, 2, 0, 1]
             >>> assert not problem.validate_solution(invalid_values)
         """
         if not self._generated:
             return False
-        
+
+        # Check if solution is None or not a list
+        if solution is None:
+            return False
+
         # Check length
         if len(solution) != self.num_nodes:
             return False
-        
+
         # Check all values are binary (0 or 1)
         if not all(x in [0, 1] for x in solution):
             return False
-        
+
         return True
     
     def calculate_cost(self, solution: List[int]) -> float:

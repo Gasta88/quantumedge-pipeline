@@ -3,12 +3,11 @@ Unit tests for monitoring module (minimal coverage with success/failure cases).
 """
 
 import pytest
-from unittest.mock import Mock, patch, AsyncMock
 from datetime import datetime
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 # Import modules to test
-from src.monitoring.db_manager import DatabaseManager, DatabaseConnectionError
+from src.monitoring.db_manager import DatabaseManager
 from src.monitoring.metrics_collector import MetricsCollector, ValidationError
 
 

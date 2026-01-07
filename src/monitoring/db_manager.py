@@ -57,7 +57,7 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.pool import QueuePool
+from sqlalchemy.pool import NullPool
 
 import logging
 
@@ -138,9 +138,10 @@ class DatabaseManager:
         
         try:
             # Create async engine with connection pooling
+            # Note: For async engines, SQLAlchemy automatically uses AsyncAdaptedQueuePool
+            # We don't need to specify poolclass explicitly
             self.engine: AsyncEngine = create_async_engine(
                 database_url,
-                poolclass=QueuePool,
                 pool_size=pool_size,
                 max_overflow=max_overflow,
                 pool_timeout=pool_timeout,
