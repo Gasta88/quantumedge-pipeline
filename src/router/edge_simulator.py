@@ -12,8 +12,8 @@ Key advantage of Rotonium technology:
 - Makes aerospace and mobile quantum computing practical
 """
 
-from dataclasses import dataclass, field
-from typing import Dict, Optional, List, Tuple, Deque
+from dataclasses import dataclass
+from typing import Dict, List, Tuple, Deque
 from enum import Enum
 from collections import deque
 from datetime import datetime

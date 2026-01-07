@@ -99,7 +99,6 @@ import numpy as np
 import networkx as nx
 from itertools import permutations
 import matplotlib.pyplot as plt
-from matplotlib.patches import FancyArrowPatch
 
 from src.problems.problem_base import ProblemBase
 

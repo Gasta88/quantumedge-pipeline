@@ -17,7 +17,6 @@ All visualizations are interactive with zoom, pan, and hover capabilities.
 
 from typing import Dict, Any, List, Optional, Tuple
 import plotly.graph_objects as go
-import plotly.express as px
 from plotly.subplots import make_subplots
 import networkx as nx
 import numpy as np

@@ -78,13 +78,13 @@ services:
       - quantumedge-network
     user: "472"  # grafana user
 
-  app:
+  api:
     build:
       context: .
       dockerfile: Dockerfile
       args:
         PYTHON_VERSION: 3.11
-    container_name: quantumedge-app
+    container_name: quantumedge-api
     environment:
       # Database connection
       POSTGRES_HOST: postgres-timescale
@@ -153,7 +153,7 @@ services:
       - ./src:/app/src
       - ./data:/app/data
     depends_on:
-      app:
+      api:
         condition: service_healthy
     command: >
       sh -c "

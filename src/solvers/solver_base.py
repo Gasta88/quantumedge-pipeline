@@ -80,7 +80,6 @@ import logging
 import time
 import psutil
 import os
-from contextlib import contextmanager
 
 from src.problems.problem_base import ProblemBase
 

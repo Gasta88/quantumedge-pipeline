@@ -34,10 +34,9 @@ Author: QuantumEdge Team
 Created: 2025-12-29
 """
 
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, Optional
 import numpy as np
 import logging
-from abc import ABC
 import time
 
 # Scipy for classical optimization

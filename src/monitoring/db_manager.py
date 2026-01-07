@@ -45,7 +45,7 @@ async with db:
 """
 
 from typing import Dict, Any, List, Optional, Tuple
-from datetime import datetime, timedelta
+from datetime import datetime
 from uuid import UUID, uuid4
 from contextlib import asynccontextmanager
 
@@ -55,18 +55,9 @@ from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
 )
-from sqlalchemy import (
-    text,
-    select,
-    insert,
-    update,
-    delete,
-    and_,
-    or_,
-    func,
-)
-from sqlalchemy.exc import SQLAlchemyError, DBAPIError
-from sqlalchemy.pool import NullPool, QueuePool
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.pool import QueuePool
 
 import logging
 

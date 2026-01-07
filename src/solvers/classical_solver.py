@@ -78,9 +78,8 @@ Where: n = problem size, m = edges, k = iterations
 import time
 import logging
 import random
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional
 import numpy as np
-import networkx as nx
 
 # Import for type checking
 from src.problems.problem_base import ProblemBase

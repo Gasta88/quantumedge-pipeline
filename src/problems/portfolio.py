@@ -106,7 +106,6 @@ import numpy as np
 import networkx as nx
 import matplotlib.pyplot as plt
 from itertools import combinations
-from scipy.optimize import minimize
 
 from src.problems.problem_base import ProblemBase
 
