@@ -609,50 +609,79 @@ Run these demos on the interactive dashboard at http://localhost:8501
 ```
 quantumedge-pipeline/
 ├── src/                          # Main source code
-│   ├── analyzer/                 # Problem analysis
-│   │   └── problem_analyzer.py  # Problem characterization
-│   ├── router/                   # Intelligent routing
-│   │   └── quantum_router.py    # Intelligent routing engine
-│   │   └── edge_simulator.py   # Edge environment simulator
-│   ├── monitoring/               # Performance monitoring
-│   │   └── metrics_collector.py # Performance tracking
-│   │   └── db_manager.py        # Database operations
+│   ├── __init__.py
+│   ├── config.py                 # Global configuration settings
+│   ├── analyzer/                 # Problem analysis module
+│   │   ├── __init__.py
+│   │   └── problem_analyzer.py   # Problem characterization & feature extraction
+│   ├── api/                      # REST API layer
+│   │   ├── __init__.py
+│   │   ├── main.py               # FastAPI application entry point
+│   │   └── orchestrator.py       # Job execution orchestrator
+│   ├── monitoring/               # Performance monitoring & metrics
+│   │   ├── __init__.py
+│   │   ├── metrics_collector.py  # Performance tracking & metrics
+│   │   └── db_manager.py         # Database operations & persistence
 │   ├── problems/                 # Problem type implementations
+│   │   ├── __init__.py
 │   │   ├── problem_base.py       # Abstract problem interface
-│   │   ├── maxcut.py            # Maximum Cut problem
-│   │   ├── tsp.py               # Traveling Salesman
-│   │   ├── portfolio.py         # Portfolio optimization
-│   └── api/                      # REST API layer
-│       ├── routes/              # API route handlers
-│       └── schemas.py           # Pydantic models
-│       └── orchestrator.py       # Job execution orchestrator
-├── config.py                     # Global configuration
-├── dashboard/                    # Streamlit dashboard
-│   ├── app.py                   # Main dashboard app
-│   ├── demo_scenarios.py        # Demo scenario implementations
-│   └── utils.py                 # Visualization utilities
-├── scripts/                      # Utility scripts
-│   ├── benchmark_solvers.py     # Solver performance benchmark
-│   ├── setup_grafana.sh         # Grafana setup script
-│   └── init_db.py               # Database initialization
+│   │   ├── maxcut.py             # Maximum Cut problem
+│   │   ├── tsp.py                # Traveling Salesman Problem
+│   │   └── portfolio.py          # Portfolio optimization
+│   ├── router/                   # Intelligent routing engine
+│   │   ├── __init__.py
+│   │   ├── quantum_router.py     # Solver selection & routing logic
+│   │   └── edge_simulator.py     # Edge environment simulation
+│   └── solvers/                  # Solver implementations
+│       ├── __init__.py
+│       ├── solver_base.py        # Abstract solver interface
+│       ├── classical_solver.py   # Classical optimization solvers
+│       └── quantum_simulator.py  # Quantum algorithm simulators
+│
+├── dashboard/                    # Streamlit web dashboard
+│   ├── app.py                    # Main dashboard application
+│   ├── demo_scenarios.py         # Demo scenario configurations
+│   ├── utils.py                  # Visualization & utility functions
+│   └── grafana_dashboards.json   # Grafana dashboard definitions
+│
+├── scripts/                      # Utility & setup scripts
+│   ├── benchmark_solvers.py      # Solver performance benchmarking
+│   ├── setup_grafana.sh          # Grafana configuration script
+│   └── init_db.sql               # Database initialization SQL
+│
 ├── tests/                        # Test suite
-│   ├── unit/                    # Unit tests
-│   ├── integration/             # Integration tests
-│   └── performance/             # Performance benchmarks
+│   ├── __init__.py
+│   ├── test_analyzer.py          # Problem analyzer tests
+│   ├── test_api.py               # API endpoint tests
+│   ├── test_monitoring.py        # Monitoring & metrics tests
+│   ├── test_problems.py          # Problem implementation tests
+│   ├── test_router.py            # Routing logic tests
+│   └── test_solvers.py           # Solver implementation tests
+│
 ├── docs/                         # Documentation
-│   ├── architecture.md          # Architecture deep-dive
-│   ├── rotonium-integration.md  # Rotonium integration guide
-│   ├── api.md                   # API documentation
-│   └── quantum-basics.md        # Quantum computing primer
-├── examples/                     # Example notebooks & scenarios
-│   └── notebooks/               # Jupyter notebooks
-├── docker/                       # Docker configurations
-│   ├── Dockerfile.api           # API service Dockerfile
-│   └── Dockerfile.dashboard     # Dashboard Dockerfile
-├── pyproject.toml               # Poetry dependencies
-├── docker-compose.yml           # Service orchestration
-├── .env.example                 # Environment template
-└── README.md                    # This file
+│   ├── api.md                    # API reference documentation
+│   ├── docker-services.md        # Docker services overview
+│   ├── quantum-basics.md         # Quantum computing primer
+│   ├── quickstart.md             # Quick start guide
+│   └── rotonium-integration.md   # Rotonium integration guide
+│
+├── monitoring/                   # Monitoring infrastructure
+│   ├── prometheus.yml            # Prometheus configuration
+│   └── grafana/                  # Grafana configurations
+│       ├── dashboards/           # Dashboard definitions
+│       │   └── dashboard.yml
+│       └── datasources/          # Data source configurations
+│           └── datasource.yml
+│
+├── Dockerfile                    # Docker image definition
+├── docker-compose.yml            # Multi-service orchestration
+├── Makefile                      # Development & deployment commands
+├── pyproject.toml                # Poetry project configuration
+├── requirements.txt              # Python dependencies
+├── .env.example                  # Environment variables template
+├── .dockerignore                 # Docker build exclusions
+├── .gitignore                    # Git ignore patterns
+└── README.md                     # This file
 ```
 
 ### Running Tests
