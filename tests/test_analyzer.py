@@ -164,6 +164,7 @@ class TestProblemHardness:
     
     def test_calculate_problem_hardness_small_problem(self, analyzer):
         """Test hardness for small problem (should be easy)."""
+
         problem = MaxCutProblem(num_nodes=4)
         problem.generate(edge_probability=0.3, seed=42)
         
