@@ -11,6 +11,7 @@ help:
 	@echo "  make restart    - Restart all services"
 	@echo "  make logs       - View logs (all services)"
 	@echo "  make logs-api   - View api service logs"
+	@echo "  make logs-dashboard   - View dashboard service logs"
 	@echo "  make ps         - Show service status"
 	@echo "  make clean      - Stop and remove volumes"
 	@echo "  make init-db    - Initialize database"
@@ -54,6 +55,9 @@ logs:
 # View logs for specific service
 logs-api:
 	docker-compose logs -f api
+
+logs-dashboard:
+	docker-compose logs -f dashboard
 
 logs-db:
 	docker-compose logs -f postgres-timescale

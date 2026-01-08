@@ -236,7 +236,7 @@ def page_submit_problem():
                         problem = TSPProblem(num_cities=problem_size)
                         problem.generate(seed=seed)
                     elif problem_type == "Portfolio":
-                        problem = PortfolioProblem(num_assets=problem_size)
+                        problem = PortfolioProblem(num_assets=problem_size, num_selected=problem_size//2)
                         problem.generate(seed=seed)
                     
                     # Prepare job configuration
@@ -643,7 +643,7 @@ def page_system_status():
     try:
         # Test database connection
         from src.monitoring.db_manager import DatabaseManager
-        db = DatabaseManager()
+        db = DatabaseManager(database_url=settings.database.async_url)
         st.success("✅ Database connection: **HEALTHY**")
         st.info(f"Connected to: {settings.database.host}:{settings.database.port}")
     except Exception as e:
