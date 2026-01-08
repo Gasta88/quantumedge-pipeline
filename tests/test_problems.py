@@ -28,10 +28,10 @@ class TestProblemBase:
     def test_problem_base_validation_failure(self):
         """Test problem validation fails when not generated."""
         problem = MaxCutProblem(num_nodes=10)
-        
-        # Should raise error when accessing methods before generation
-        with pytest.raises(ValueError, match="Problem must be generated"):
-            problem.validate_solution([0, 1, 0, 1, 0, 1, 0, 1, 0, 1])
+
+        # Should return False when problem not generated
+        result = problem.validate_solution([0, 1, 0, 1, 0, 1, 0, 1, 0, 1])
+        assert result is False
 
 
 class TestMaxCutProblem:

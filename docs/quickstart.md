@@ -71,7 +71,7 @@ make down        # Stop services
 make restart     # Restart services
 make ps          # Service status
 make logs        # View all logs
-make logs-app    # View app logs only
+make logs-api    # View api logs only
 ```
 
 ### Database Operations
@@ -84,7 +84,7 @@ make restore-db FILE=backup.sql  # Restore backup
 
 ### Development
 ```bash
-make shell-app   # Access app container
+make shell-api   # Access api container
 make test        # Run tests
 make test-cov    # Run tests with coverage
 ```
@@ -127,7 +127,7 @@ sudo chown -R 472:472 ./data/grafana
 make logs-db
 
 # Test connection
-docker-compose exec app python -c "from src.config import config; print(config.database_url)"
+docker-compose exec api python -c "from src.config import config; print(config.database_url)"
 ```
 
 ## Next Steps

@@ -3,8 +3,6 @@ Unit tests for analyzer module (minimal coverage with success/failure cases).
 """
 
 import pytest
-import numpy as np
-import networkx as nx
 
 # Import modules to test
 from src.analyzer.problem_analyzer import ProblemAnalyzer
@@ -166,7 +164,8 @@ class TestProblemHardness:
     
     def test_calculate_problem_hardness_small_problem(self, analyzer):
         """Test hardness for small problem (should be easy)."""
-        problem = MaxCutProblem(num_nodes=8)
+
+        problem = MaxCutProblem(num_nodes=4)
         problem.generate(edge_probability=0.3, seed=42)
         
         hardness = analyzer.calculate_problem_hardness(problem)

@@ -35,6 +35,8 @@ For **Rotonium**, this pipeline showcases how their photonic quantum processors 
 
 ##  Quick Start
 
+For use of Makefile commands, see [**docs/quickstart.md**](docs/quickstart.md)
+
 ### Prerequisites
 
 Before you begin, ensure you have the following installed:
@@ -55,10 +57,10 @@ cd quantumedge-pipeline
 cp .env.example .env
 
 # 3. Start all services with Docker Compose
-docker-compose up -d
+make up
 
 # 4. Verify services are running
-docker-compose ps
+make ps
 
 # Expected output:
 # NAME                  STATUS    PORTS
@@ -183,47 +185,76 @@ import httpx
 import asyncio
 
 async def submit_maxcut_problem():
+    """
+    Alternative MaxCut test script that matches the actual API implementation.
+    This script uses the correct endpoint and request schema.
+    """
     async with httpx.AsyncClient() as client:
-        response = await client.post(
-            "http://localhost:8000/api/v1/jobs/submit",
-            json={
-                "problem_type": "maxcut",
-                "graph": {
-                    "nodes": 10,
-                    "edges": [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5],
-                              [5, 6], [6, 7], [7, 8], [8, 9], [9, 0]]
+        try:
+            # Using the correct endpoint and schema
+            response = await client.post(
+                "http://localhost:8000/api/v1/jobs/maxcut",
+                json={
+                    "num_nodes": 10,
+                    "edge_probability": 0.3,
+                    "edge_profile": "aerospace",
+                    "strategy": "balanced",
+                    "seed": 42
                 },
-                "constraints": {
-                    "max_time": 60,
-                    "max_memory_mb": 2048
-                }
-            },
-            timeout=30.0
-        )
-        result = response.json()
-        print(f"Job ID: {result['job_id']}")
-        print(f"Solver: {result['solver_type']}")
-        print(f"Solution: {result['solution']}")
-        return result
+                timeout=30.0
+            )
+            
+            # Check if request was successful
+            response.raise_for_status()
+            
+            result = response.json()
+            
+            # Display results
+            print("=" * 60)
+            print("MaxCut Job Results")
+            print("=" * 60)
+            print(f"Job ID: {result['job_id']}")
+            print(f"Solver Used: {result.get('solver_used', 'N/A')}")
+            print(f"Solution: {result.get('solution', 'N/A')}")
+            
+            return result
+            
+        except httpx.ConnectError as e:
+            print("Connection Error: Could not connect to the API server.")
+            print(f"Error: {e}")
+            return None
+            
+        except httpx.HTTPStatusError as e:
+            print(f"HTTP Error: {e.response.status_code}")
+            print(f"Response: {e.response.text}")
+            return None
+            
+        except Exception as e:
+            print(f"Unexpected Error: {type(e).__name__}")
+            print(f"Error: {e}")
+            return None
 
 # Run the async function
-asyncio.run(submit_maxcut_problem())
+if __name__ == "__main__":
+    result = asyncio.run(submit_maxcut_problem())
+    
+    if result:
+        print("Test completed successfully!")
+    else:
+        print("Test failed - see errors above")
+
 ```
 
 **cURL equivalent:**
 ```bash
-curl -X POST "http://localhost:8000/api/v1/jobs/submit" \
+curl -s -w "\n%{http_code}" -X POST "http://localhost:8000/api/v1/jobs/maxcut" \
   -H "Content-Type: application/json" \
   -d '{
-    "problem_type": "maxcut",
-    "graph": {
-      "nodes": 10,
-      "edges": [[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,7],[7,8],[8,9],[9,0]]
-    },
-    "constraints": {
-      "max_time": 60,
-      "max_memory_mb": 2048
-    }
+    "num_nodes": 10,
+    "edge_probability": 0.3,
+    "edge_profile": "aerospace",
+    "strategy": "balanced",
+    "seed": 42
   }'
 ```
 
@@ -241,27 +272,49 @@ async def compare_solvers():
             "http://localhost:8000/api/v1/jobs/comparative",
             json={
                 "problem_type": "tsp",
-                "cities": [
-                    {"id": 0, "x": 0.0, "y": 0.0},
-                    {"id": 1, "x": 1.0, "y": 2.0},
-                    {"id": 2, "x": 3.0, "y": 1.0},
-                    {"id": 3, "x": 4.0, "y": 3.0},
-                    {"id": 4, "x": 2.0, "y": 4.0}
-                ],
-                "solvers": ["classical_gurobi", "quantum_qaoa", "hybrid_vqe"]
+                "problem_size": 5,  # Number of cities (changed from cities array)
+                "edge_profile": "aerospace",  # Optional: aerospace, mobile, or ground_server
+                "seed": 42  # Optional: for reproducibility
             },
             timeout=120.0
         )
         comparison = response.json()
         
         print("=== Solver Comparison ===")
-        for solver_result in comparison['results']:
-            print(f"\nSolver: {solver_result['solver']}")
-            print(f"  Time: {solver_result['execution_time']:.3f}s")
-            print(f"  Quality: {solver_result['objective_value']}")
-            print(f"  Energy: {solver_result['energy_consumed']:.2f}J")
         
-        print(f"\nWinner: {comparison['best_solver']}")
+        # Classical solver results
+        print("\n[Classical Solver]")
+        print(f"  Time: {comparison['classical']['time_ms']:.3f}ms")
+        print(f"  Cost: {comparison['classical']['cost']}")
+        print(f"  Energy: {comparison['classical']['energy_mj']:.2f}mJ")
+        print(f"  Valid: {comparison['classical']['is_valid']}")
+        print(f"  Quality: {comparison['classical']['solution_quality']:.2%}")
+        if comparison['classical'].get('error'):
+            print(f"  Error: {comparison['classical']['error']}")
+        
+        # Quantum solver results
+        print("\n[Quantum Solver]")
+        print(f"  Time: {comparison['quantum']['time_ms']:.3f}ms")
+        print(f"  Cost: {comparison['quantum']['cost']}")
+        print(f"  Energy: {comparison['quantum']['energy_mj']:.2f}mJ")
+        print(f"  Valid: {comparison['quantum']['is_valid']}")
+        print(f"  Quality: {comparison['quantum']['solution_quality']:.2%}")
+        if comparison['quantum'].get('error'):
+            print(f"  Error: {comparison['quantum']['error']}")
+        
+        # Comparison metrics
+        print("\n[Comparison Metrics]")
+        if comparison.get('speedup_factor'):
+            print(f"  Speedup Factor: {comparison['speedup_factor']:.2f}x")
+        if comparison.get('energy_ratio'):
+            print(f"  Energy Ratio: {comparison['energy_ratio']:.2f}x")
+        if comparison.get('quality_diff'):
+            print(f"  Quality Difference: {comparison['quality_diff']:.2%}")
+        
+        print(f"\n[Recommendation]")
+        print(f"  Winner: {comparison['recommendation']}")
+        print(f"  Reason: {comparison['recommendation_reason']}")
+        
         return comparison
 
 asyncio.run(compare_solvers())
@@ -275,33 +328,110 @@ Retrieve past job results and performance metrics:
 import httpx
 import asyncio
 
-async def query_metrics():
+async def test_system_and_execute():
+    """
+    Working alternative that demonstrates available functionality.
+    Since job retrieval and historical metrics endpoints don't exist,
+    we'll submit a job and immediately get results, then check system stats.
+    """
     async with httpx.AsyncClient() as client:
-        # Get specific job details
-        job_id = "550e8400-e29b-41d4-a716-446655440000"
-        response = await client.get(
-            f"http://localhost:8000/api/v1/jobs/{job_id}"
-        )
-        job_data = response.json()
-        print(f"Job Status: {job_data['status']}")
-        print(f"Execution Time: {job_data['metrics']['execution_time']}s")
         
-        # Query aggregated metrics
-        response = await client.get(
-            "http://localhost:8000/api/v1/metrics",
-            params={
-                "problem_type": "maxcut",
-                "solver_type": "quantum",
-                "start_date": "2024-01-01",
-                "end_date": "2024-12-31"
-            }
+        # 1. Check system health
+        print("=== System Health Check ===")
+        response = await client.get("http://localhost:8000/health")
+        health = response.json()
+        print(f"Status: {health['status']}")
+        print(f"Version: {health['version']}")
+        print(f"Components: {health['components']}")
+        
+        # 2. Get system information
+        print("\n=== System Information ===")
+        response = await client.get("http://localhost:8000/api/v1/system/info")
+        info = response.json()
+        print(f"Application: {info['application']['name']}")
+        print(f"Environment: {info['application']['environment']}")
+        print(f"Quantum Backend: {info['configuration']['quantum_backend']}")
+        print(f"Max Qubits: {info['configuration']['quantum_max_qubits']}")
+        print(f"Problem Types: {info['capabilities']['problem_types']}")
+        print(f"Solver Types: {info['capabilities']['solver_types']}")
+        
+        # 3. Submit a MaxCut job and get immediate results
+        print("\n=== Submitting MaxCut Job ===")
+        response = await client.post(
+            "http://localhost:8000/api/v1/jobs/maxcut",
+            json={
+                "num_nodes": 20,
+                "edge_probability": 0.3,
+                "edge_profile": "aerospace",
+                "strategy": "balanced",
+                "seed": 42
+            },
+            timeout=60.0
         )
-        metrics = response.json()
-        print(f"\nTotal Jobs: {metrics['total_jobs']}")
-        print(f"Avg Execution Time: {metrics['avg_execution_time']:.3f}s")
-        print(f"Success Rate: {metrics['success_rate']:.1%}")
+        job_result = response.json()
+        print(F"Debug: {job_result.keys()}")
+        print(f"Job ID: {job_result['job_id']}")
+        print(f"Status: {job_result['status']}")
+        print(f"Problem Size: {job_result['problem_size']}")
+        print(f"Solver Used: {job_result['solver_used']}")
+        print(f"Routing Decision: {job_result['routing_decision']}")
+        print(f"Routing Confidence: {job_result['routing_confidence']:.2%}")
+        print(f"Cost: {job_result['cost']}")
+        print(f"Execution Time: {job_result['time_ms']:.2f}ms")
+        print(f"Energy Consumed: {0 if job_result['energy_consumed_mj'] is None else job_result['energy_consumed_mj']:.2f}mJ")
+        print(f"Solution Valid: {job_result['is_valid']}")
+        print(f"Solution Quality: {job_result['solution_quality']:.2%}")
+        print(f"Reasoning: {job_result['routing_reason']}")
+        
+        # 4. Get system statistics (in-memory only)
+        print("\n=== System Statistics ===")
+        response = await client.get("http://localhost:8000/api/v1/system/stats")
+        stats = response.json()
+        print(f"Jobs Executed: {stats['statistics']['jobs_executed']}")
+        print(f"Jobs Failed: {stats['statistics']['jobs_failed']}")
+        print(f"Success Rate: {stats['statistics']['success_rate']:.2%}")
+        print(f"Avg Execution Time: {stats['statistics']['average_execution_time_ms']:.2f}ms")
+        print(f"Total Execution Time: {stats['statistics']['total_execution_time_ms']:.2f}ms")
+        
+        # 5. Submit comparative analysis
+        print("\n=== Comparative Analysis ===")
+        response = await client.post(
+            "http://localhost:8000/api/v1/jobs/comparative",
+            json={
+                "problem_type": "tsp",
+                "problem_size": 10,
+                "edge_profile": "aerospace",
+                "seed": 42
+            },
+            timeout=120.0
+        )
+        comparison = response.json()
+        
+        print(f"\nClassical Solver:")
+        print(f"  Time: {comparison['classical']['time_ms']:.2f}ms")
+        print(f"  Cost: {comparison['classical']['cost']:.4f}")
+        print(f"  Quality: {comparison['classical']['solution_quality']:.2%}")
+        
+        print(f"\nQuantum Solver:")
+        print(f"  Time: {comparison['quantum']['time_ms']:.2f}ms")
+        print(f"  Cost: {comparison['quantum']['cost']:.4f}")
+        print(f"  Quality: {comparison['quantum']['solution_quality']:.2%}")
+        
+        print(f"\nRecommendation: {comparison['recommendation']}")
+        print(f"Reason: {comparison['recommendation_reason']}")
+        
+        # 6. Check edge profiles
+        print("\n=== Edge Profiles ===")
+        response = await client.get("http://localhost:8000/api/v1/config/edge-profiles")
+        profiles = response.json()
+        for name, profile in profiles['profiles'].items():
+            print(f"\n{name.upper()}:")
+            print(f"  Power Budget: {profile['power_budget_watts']}W")
+            print(f"  Memory: {profile['memory_mb']}MB")
+            print(f"  CPU Cores: {profile['cpu_cores']}")
+            print(f"  Max Execution Time: {profile['max_execution_time_sec']}s")
 
-asyncio.run(query_metrics())
+asyncio.run(test_system_and_execute())
 ```
 
 ### 4. Python SDK Example
@@ -309,35 +439,48 @@ asyncio.run(query_metrics())
 For direct integration without API calls:
 
 ```python
-from src.router.quantum_router import QuantumRouter
 from src.problems.maxcut import MaxCutProblem
-from src.solvers.factory import SolverFactory
+from src.router.quantum_router import QuantumRouter, RoutingStrategy
+from src.router.edge_simulator import EdgeEnvironment, DeploymentProfile
+from src.solvers.classical_solver import ClassicalSolver
+from src.solvers.quantum_simulator import QuantumSimulator
 
-# Create problem instance
+# Create problem
 problem = MaxCutProblem(num_nodes=15)
-problem.generate_random_graph(edge_probability=0.3)
-
-# Initialize router with edge constraints
+problem.generate(edge_probability=0.3, seed=42)
+# Create router
 router = QuantumRouter(
-    max_qubits=20,
-    max_memory_mb=1024,
-    prefer_edge_optimized=True
-)
+            strategy=RoutingStrategy.BALANCED,
+            enable_learning=True
+        )
+# Create environment
+edge_env = EdgeEnvironment(DeploymentProfile.AEROSPACE)
+# Route problem
+routing_result = router.route_problem(problem, edge_env)
+# Get solver
+decision = routing_result['decision']
+if decision == 'classical':
+    solver = ClassicalSolver()
+    print("   Using ClassicalSolver (greedy approximation)")
+elif decision == 'quantum':
+    solver = QuantumSimulator()
+    print("   Using QuantumSimulator (QAOA simulation)")
+else:
+    print(f"   Unknown solver type: {decision}, defaulting to classical")
+    solver = ClassicalSolver()
 
-# Get routing decision
-decision = router.route(problem)
-print(f"Recommended solver: {decision.solver_type}")
-print(f"Confidence: {decision.confidence:.2%}")
-print(f"Reasoning: {decision.reasoning}")
-
-# Execute with recommended solver
-solver = SolverFactory.create(decision.solver_type)
+# Execute solver
 result = solver.solve(problem)
-
-print(f"\nObjective value: {result.objective_value}")
-print(f"Execution time: {result.execution_time:.3f}s")
-print(f"Energy consumed: {result.energy_consumed:.2f}J")
-print(f"Solution: {result.solution}")
+print(f"Problem Size:      {problem.num_nodes} nodes")
+print(f"Solver Used:       {decision}")
+print(f"Execution Time:    {result['time_ms']:.3f} s")
+print(f"Energy Consumed:   {result['energy_mj']:.2f} J")
+print(f"Solution Valid:    {result['solution']}")
+print(f"\nSolution (partition):")
+print(f"  Set 0: {[i for i, v in enumerate(result['solution']) if v == 0]}")
+print(f"  Set 1: {[i for i, v in enumerate(result['solution']) if v == 1]}")
+print("=" * 70)
+print("Test completed successfully!")
 ```
 
 ---
@@ -408,16 +551,12 @@ For detailed integration guide, see [**docs/rotonium-integration.md**](docs/roto
 
 ##  Demo Scenarios
 
-The pipeline includes three production-ready demo scenarios showcasing real-world applications:
+Run these demos on the interactive dashboard at http://localhost:8501
 
 ### 1.  Aerospace Routing Optimization
 
 **Scenario**: Optimize flight paths for a fleet of drones performing surveillance over a region.
 
-```bash
-# Run aerospace demo
-docker-compose exec api python scripts/demos/aerospace_routing.py
-```
 
 **Problem Details**:
 - 15 waypoints with varying priorities
@@ -433,11 +572,6 @@ docker-compose exec api python scripts/demos/aerospace_routing.py
 ### 2.  Financial Portfolio Optimization
 
 **Scenario**: Asset allocation for risk-constrained portfolio with correlation matrix.
-
-```bash
-# Run financial demo
-docker-compose exec api python scripts/demos/portfolio_optimization.py
-```
 
 **Problem Details**:
 - 20 assets with historical returns
@@ -455,11 +589,6 @@ docker-compose exec api python scripts/demos/portfolio_optimization.py
 
 **Scenario**: Partition neural network graph for distributed training across edge devices.
 
-```bash
-# Run ML demo
-docker-compose exec api python scripts/demos/ml_graph_partition.py
-```
-
 **Problem Details**:
 - ResNet-50 computation graph (50 layers)
 - Minimize inter-device communication
@@ -471,15 +600,6 @@ docker-compose exec api python scripts/demos/ml_graph_partition.py
 - Load balance variance: <5%
 - Quantum solver selected for 30+ node subgraphs
 
-### Screenshots & Visualizations
-
-Visit the dashboard at http://localhost:8501 to see:
-- Interactive problem submission forms
-- Real-time solver execution monitoring
-- Performance comparison charts
-- Historical metrics and trends
-
-
 ---
 
 ##  Development
@@ -489,62 +609,86 @@ Visit the dashboard at http://localhost:8501 to see:
 ```
 quantumedge-pipeline/
 ├── src/                          # Main source code
-│   ├── analyzer/                 # Problem characterization
-│   │   ├── feature_extractor.py # Graph/problem feature extraction
-│   │   └── problem_analyzer.py  # Analysis orchestration
-│   ├── router/                   # Routing decision logic
-│   │   ├── quantum_router.py    # ML-based routing engine
-│   │   └── routing_strategy.py  # Strategy patterns
-│   ├── solvers/                  # Solver implementations
-│   │   ├── classical/            # Classical solver wrappers
-│   │   ├── quantum/              # Quantum solvers (QAOA, VQE)
-│   │   ├── hybrid/               # Hybrid approaches
-│   │   └── factory.py            # Solver factory pattern
-│   ├── monitoring/               # Metrics & monitoring
-│   │   ├── metrics_collector.py # Performance tracking
-│   │   └── energy_monitor.py    # Energy consumption tracking
+│   ├── __init__.py
+│   ├── config.py                 # Global configuration settings
+│   ├── analyzer/                 # Problem analysis module
+│   │   ├── __init__.py
+│   │   └── problem_analyzer.py   # Problem characterization & feature extraction
+│   ├── api/                      # REST API layer
+│   │   ├── __init__.py
+│   │   ├── main.py               # FastAPI application entry point
+│   │   └── orchestrator.py       # Job execution orchestrator
+│   ├── monitoring/               # Performance monitoring & metrics
+│   │   ├── __init__.py
+│   │   ├── metrics_collector.py  # Performance tracking & metrics
+│   │   └── db_manager.py         # Database operations & persistence
 │   ├── problems/                 # Problem type implementations
-│   │   ├── maxcut.py            # Maximum Cut problem
-│   │   ├── tsp.py               # Traveling Salesman
-│   │   ├── portfolio.py         # Portfolio optimization
-│   │   └── base.py              # Abstract problem interface
-│   └── api/                      # REST API layer
-│       ├── main.py              # FastAPI application
-│       ├── routes/              # API route handlers
-│       └── schemas.py           # Pydantic models
-├── dashboard/                    # Streamlit dashboard
-│   ├── app.py                   # Main dashboard app
-│   ├── demo_scenarios.py        # Demo scenario implementations
-│   └── utils.py                 # Visualization utilities
-├── scripts/                      # Utility scripts
-│   ├── seed_data.py             # Database initialization
-│   ├── run_demo.py              # Comprehensive demo runner
-│   └── demos/                   # Individual demo scripts
+│   │   ├── __init__.py
+│   │   ├── problem_base.py       # Abstract problem interface
+│   │   ├── maxcut.py             # Maximum Cut problem
+│   │   ├── tsp.py                # Traveling Salesman Problem
+│   │   └── portfolio.py          # Portfolio optimization
+│   ├── router/                   # Intelligent routing engine
+│   │   ├── __init__.py
+│   │   ├── quantum_router.py     # Solver selection & routing logic
+│   │   └── edge_simulator.py     # Edge environment simulation
+│   └── solvers/                  # Solver implementations
+│       ├── __init__.py
+│       ├── solver_base.py        # Abstract solver interface
+│       ├── classical_solver.py   # Classical optimization solvers
+│       └── quantum_simulator.py  # Quantum algorithm simulators
+│
+├── dashboard/                    # Streamlit web dashboard
+│   ├── app.py                    # Main dashboard application
+│   ├── demo_scenarios.py         # Demo scenario configurations
+│   ├── utils.py                  # Visualization & utility functions
+│   └── grafana_dashboards.json   # Grafana dashboard definitions
+│
+├── scripts/                      # Utility & setup scripts
+│   ├── benchmark_solvers.py      # Solver performance benchmarking
+│   ├── setup_grafana.sh          # Grafana configuration script
+│   └── init_db.sql               # Database initialization SQL
+│
 ├── tests/                        # Test suite
-│   ├── unit/                    # Unit tests
-│   ├── integration/             # Integration tests
-│   └── performance/             # Performance benchmarks
+│   ├── __init__.py
+│   ├── test_analyzer.py          # Problem analyzer tests
+│   ├── test_api.py               # API endpoint tests
+│   ├── test_monitoring.py        # Monitoring & metrics tests
+│   ├── test_problems.py          # Problem implementation tests
+│   ├── test_router.py            # Routing logic tests
+│   └── test_solvers.py           # Solver implementation tests
+│
 ├── docs/                         # Documentation
-│   ├── architecture.md          # Architecture deep-dive
-│   ├── rotonium-integration.md  # Rotonium integration guide
-│   ├── api.md                   # API documentation
-│   └── quantum-basics.md        # Quantum computing primer
-├── examples/                     # Example notebooks & scenarios
-│   └── notebooks/               # Jupyter notebooks
-├── docker/                       # Docker configurations
-│   ├── Dockerfile.api           # API service Dockerfile
-│   └── Dockerfile.dashboard     # Dashboard Dockerfile
-├── pyproject.toml               # Poetry dependencies
-├── docker-compose.yml           # Service orchestration
-├── .env.example                 # Environment template
-└── README.md                    # This file
+│   ├── api.md                    # API reference documentation
+│   ├── docker-services.md        # Docker services overview
+│   ├── quantum-basics.md         # Quantum computing primer
+│   ├── quickstart.md             # Quick start guide
+│   └── rotonium-integration.md   # Rotonium integration guide
+│
+├── monitoring/                   # Monitoring infrastructure
+│   ├── prometheus.yml            # Prometheus configuration
+│   └── grafana/                  # Grafana configurations
+│       ├── dashboards/           # Dashboard definitions
+│       │   └── dashboard.yml
+│       └── datasources/          # Data source configurations
+│           └── datasource.yml
+│
+├── Dockerfile                    # Docker image definition
+├── docker-compose.yml            # Multi-service orchestration
+├── Makefile                      # Development & deployment commands
+├── pyproject.toml                # Poetry project configuration
+├── requirements.txt              # Python dependencies
+├── .env.example                  # Environment variables template
+├── .dockerignore                 # Docker build exclusions
+├── .gitignore                    # Git ignore patterns
+└── README.md                     # This file
 ```
 
 ### Running Tests
 
 ```bash
 # Run all tests with coverage
-docker-compose exec api poetry run pytest --cov=src --cov-report=html
+make test
 
 # Run specific test suite
 docker-compose exec api poetry run pytest tests/unit/test_router.py -v

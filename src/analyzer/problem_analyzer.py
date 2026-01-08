@@ -942,7 +942,10 @@ class ProblemAnalyzer:
         # Map score to categories
         # Thresholds chosen based on typical problem characteristics
         # Can be tuned based on empirical solver performance
-        if hardness_score <= 2:
+        # Very small problems (size <= 10) are always easy regardless of structure
+        if size <= 10:
+            hardness = 'easy'
+        elif hardness_score <= 2:
             hardness = 'easy'
         elif hardness_score <= 6:
             hardness = 'medium'

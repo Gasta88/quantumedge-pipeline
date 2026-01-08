@@ -1,4 +1,4 @@
-.PHONY: help build up down restart logs ps clean init-db shell-db shell-redis shell-app test
+.PHONY: help build up down restart logs ps clean init-db shell-db shell-redis shell-api test
 
 # Default target
 help:
@@ -10,12 +10,14 @@ help:
 	@echo "  make down       - Stop all services"
 	@echo "  make restart    - Restart all services"
 	@echo "  make logs       - View logs (all services)"
+	@echo "  make logs-api   - View api service logs"
+	@echo "  make logs-dashboard   - View dashboard service logs"
 	@echo "  make ps         - Show service status"
 	@echo "  make clean      - Stop and remove volumes"
 	@echo "  make init-db    - Initialize database"
 	@echo "  make shell-db   - Open PostgreSQL shell"
 	@echo "  make shell-redis - Open Redis CLI"
-	@echo "  make shell-app  - Open app container shell"
+	@echo "  make shell-api  - Open api container shell"
 	@echo "  make test       - Run tests"
 	@echo "  make backup-db  - Backup database"
 	@echo "  make restore-db - Restore database from backup"
@@ -51,8 +53,11 @@ logs:
 	docker-compose logs -f
 
 # View logs for specific service
-logs-app:
-	docker-compose logs -f app
+logs-api:
+	docker-compose logs -f api
+
+logs-dashboard:
+	docker-compose logs -f dashboard
 
 logs-db:
 	docker-compose logs -f postgres-timescale
@@ -62,7 +67,7 @@ logs-grafana:
 
 # Show service status
 ps:
-	docker-compose ps
+	docker-compose ps -a
 
 # Clean everything (including volumes)
 clean:
@@ -85,17 +90,17 @@ shell-db:
 shell-redis:
 	docker-compose exec redis redis-cli
 
-# App container shell
-shell-app:
-	docker-compose exec app bash
+# Api container shell
+shell-api:
+	docker-compose exec api bash
 
 # Run tests
 test:
-	docker-compose exec app pytest tests/ -v
+	docker-compose exec api pytest tests/ -v
 
 # Run tests with coverage
 test-cov:
-	docker-compose exec app pytest tests/ -v --cov=src --cov-report=html
+	docker-compose exec api pytest tests/ -v --cov=src --cov-report=html
 
 # Backup database
 backup-db:
@@ -119,15 +124,15 @@ grafana-datasources:
 	@cat monitoring/grafana/datasources/datasource.yml
 
 # Scale services
-scale-app:
-	docker-compose up -d --scale app=3
+scale-api:
+	docker-compose up -d --scale api=3
 
 # Health check all services
 health:
 	@echo "Checking service health..."
-	@docker-compose ps | grep "Up"
+	@docker-compose ps -a | grep "Up"
 	@echo ""
-	@curl -s http://localhost:8000/health | jq . || echo "App not responding"
+	@curl -s http://localhost:8000/health | jq . || echo "Api not responding"
 	@curl -s http://localhost:9090/-/healthy || echo "Prometheus not responding"
 
 # Install development dependencies
