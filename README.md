@@ -551,16 +551,12 @@ For detailed integration guide, see [**docs/rotonium-integration.md**](docs/roto
 
 ##  Demo Scenarios
 
-The pipeline includes three production-ready demo scenarios showcasing real-world applications:
+Run these demos on the interactive dashboard at http://localhost:8501
 
 ### 1.  Aerospace Routing Optimization
 
 **Scenario**: Optimize flight paths for a fleet of drones performing surveillance over a region.
 
-```bash
-# Run aerospace demo
-docker-compose exec api python scripts/demos/aerospace_routing.py
-```
 
 **Problem Details**:
 - 15 waypoints with varying priorities
@@ -576,11 +572,6 @@ docker-compose exec api python scripts/demos/aerospace_routing.py
 ### 2.  Financial Portfolio Optimization
 
 **Scenario**: Asset allocation for risk-constrained portfolio with correlation matrix.
-
-```bash
-# Run financial demo
-docker-compose exec api python scripts/demos/portfolio_optimization.py
-```
 
 **Problem Details**:
 - 20 assets with historical returns
@@ -598,11 +589,6 @@ docker-compose exec api python scripts/demos/portfolio_optimization.py
 
 **Scenario**: Partition neural network graph for distributed training across edge devices.
 
-```bash
-# Run ML demo
-docker-compose exec api python scripts/demos/ml_graph_partition.py
-```
-
 **Problem Details**:
 - ResNet-50 computation graph (50 layers)
 - Minimize inter-device communication
@@ -614,15 +600,6 @@ docker-compose exec api python scripts/demos/ml_graph_partition.py
 - Load balance variance: <5%
 - Quantum solver selected for 30+ node subgraphs
 
-### Screenshots & Visualizations
-
-Visit the dashboard at http://localhost:8501 to see:
-- Interactive problem submission forms
-- Real-time solver execution monitoring
-- Performance comparison charts
-- Historical metrics and trends
-
-
 ---
 
 ##  Development
@@ -632,37 +609,32 @@ Visit the dashboard at http://localhost:8501 to see:
 ```
 quantumedge-pipeline/
 ├── src/                          # Main source code
-│   ├── analyzer/                 # Problem characterization
-│   │   ├── feature_extractor.py # Graph/problem feature extraction
-│   │   └── problem_analyzer.py  # Analysis orchestration
-│   ├── router/                   # Routing decision logic
-│   │   ├── quantum_router.py    # ML-based routing engine
-│   │   └── routing_strategy.py  # Strategy patterns
-│   ├── solvers/                  # Solver implementations
-│   │   ├── classical/            # Classical solver wrappers
-│   │   ├── quantum/              # Quantum solvers (QAOA, VQE)
-│   │   ├── hybrid/               # Hybrid approaches
-│   │   └── factory.py            # Solver factory pattern
-│   ├── monitoring/               # Metrics & monitoring
-│   │   ├── metrics_collector.py # Performance tracking
-│   │   └── energy_monitor.py    # Energy consumption tracking
+│   ├── analyzer/                 # Problem analysis
+│   │   └── problem_analyzer.py  # Problem characterization
+│   ├── router/                   # Intelligent routing
+│   │   └── quantum_router.py    # Intelligent routing engine
+│   │   └── edge_simulator.py   # Edge environment simulator
+│   ├── monitoring/               # Performance monitoring
+│   │   └── metrics_collector.py # Performance tracking
+│   │   └── db_manager.py        # Database operations
 │   ├── problems/                 # Problem type implementations
+│   │   ├── problem_base.py       # Abstract problem interface
 │   │   ├── maxcut.py            # Maximum Cut problem
 │   │   ├── tsp.py               # Traveling Salesman
 │   │   ├── portfolio.py         # Portfolio optimization
-│   │   └── base.py              # Abstract problem interface
 │   └── api/                      # REST API layer
-│       ├── main.py              # FastAPI application
 │       ├── routes/              # API route handlers
 │       └── schemas.py           # Pydantic models
+│       └── orchestrator.py       # Job execution orchestrator
+├── config.py                     # Global configuration
 ├── dashboard/                    # Streamlit dashboard
 │   ├── app.py                   # Main dashboard app
 │   ├── demo_scenarios.py        # Demo scenario implementations
 │   └── utils.py                 # Visualization utilities
 ├── scripts/                      # Utility scripts
-│   ├── seed_data.py             # Database initialization
-│   ├── run_demo.py              # Comprehensive demo runner
-│   └── demos/                   # Individual demo scripts
+│   ├── benchmark_solvers.py     # Solver performance benchmark
+│   ├── setup_grafana.sh         # Grafana setup script
+│   └── init_db.py               # Database initialization
 ├── tests/                        # Test suite
 │   ├── unit/                    # Unit tests
 │   ├── integration/             # Integration tests
