@@ -644,6 +644,305 @@ class QuantumSimulator(SolverBase):
         
         return hamiltonian
     
+    def _solve_vqe(
+        self,
+        problem: Any,
+        ansatz_layers: int = 2,
+        maxiter: int = 100,
+        optimizer: str = 'COBYLA',
+        initial_params: Optional[np.ndarray] = None,
+        convergence_threshold: float = 1e-6,
+        verbose: bool = True,
+        **kwargs
+    ) -> Dict[str, Any]:
+        """
+        Solve optimization problem using VQE (Variational Quantum Eigensolver).
+        
+        VQE Overview:
+        =============
+        VQE is a hybrid quantum-classical algorithm designed to find the ground state
+        (lowest energy state) of a quantum system. While originally designed for chemistry
+        problems, it can be adapted for optimization problems.
+        
+        Key Differences from QAOA:
+        --------------------------
+        QAOA:
+        - Problem-specific (designed for QUBO)
+        - Fixed circuit structure (problem + mixer layers)
+        - Parameters control problem/mixer strength
+        
+        VQE:
+        - More general purpose
+        - Flexible ansatz (circuit structure)
+        - Parameters control quantum state preparation
+        
+        How VQE Works:
+        --------------
+        1. Prepare parameterized quantum state |ψ(θ)⟩ using ansatz circuit
+        2. Measure expectation value ⟨ψ(θ)|H|ψ(θ)⟩
+        3. Classical optimizer adjusts θ to minimize expectation
+        4. Repeat until convergence
+        5. Final measurement gives solution
+        
+        Ansatz Choices:
+        ---------------
+        - Hardware-efficient: Alternating rotation + entangling layers
+        - Problem-inspired: Circuit structure reflects problem symmetries
+        - Adaptive: Build circuit dynamically based on gradient information
+        
+        This implementation uses hardware-efficient ansatz:
+        - Single-qubit rotations (RY gates) for parameterization
+        - CNOT gates for entanglement
+        - Repeated layers for expressiveness
+        
+        Args:
+            problem: Problem instance with to_qubo() method
+            ansatz_layers: Number of ansatz repetitions (more = more expressive)
+            maxiter: Maximum optimization iterations
+            optimizer: Classical optimization method ('COBYLA', 'BFGS', etc.)
+            initial_params: Starting parameters (None = random)
+            convergence_threshold: Stop when |Δcost| < threshold
+            verbose: Print optimization progress
+            **kwargs: Additional arguments
+        
+        Returns:
+            Standardized result dictionary with solution, cost, time, energy, metadata
+        
+        Raises:
+            QuantumSimulatorException: If VQE execution fails
+            ValueError: If problem doesn't support QUBO conversion
+        
+        Example:
+            >>> from src.problems.maxcut import MaxCutProblem
+            >>> problem = MaxCutProblem(num_nodes=6)
+            >>> problem.generate(edge_probability=0.5)
+            >>> 
+            >>> simulator = QuantumSimulator(shots=1024)
+            >>> result = simulator.solve(
+            ...     problem,
+            ...     algorithm='vqe',
+            ...     ansatz_layers=2,
+            ...     maxiter=100
+            ... )
+            >>> print(f"VQE solution: {result['solution']}")
+            >>> print(f"Cost: {result['cost']:.4f}")
+        """
+        start_time = time.time()
+        
+        if verbose:
+            print("\n" + "="*70)
+            print("VQE (VARIATIONAL QUANTUM EIGENSOLVER)")
+            print("="*70)
+            print(f"Problem: {problem.__class__.__name__}")
+            print(f"Ansatz layers: {ansatz_layers}")
+            print(f"Max iterations: {maxiter}")
+            print(f"Optimizer: {optimizer}")
+            print(f"Shots per evaluation: {self.shots}")
+            print("="*70 + "\n")
+        
+        # Convert problem to QUBO and Hamiltonian
+        if verbose:
+            print("📊 Step 1: Converting problem to Hamiltonian...")
+        
+        try:
+            qubo_matrix = problem.to_qubo()
+            n_qubits = qubo_matrix.shape[0]
+            hamiltonian = self._qubo_to_hamiltonian(qubo_matrix)
+            
+            if verbose:
+                print(f"   ✓ Problem size: {n_qubits} qubits")
+                print(f"   ✓ Hamiltonian terms: {len(hamiltonian.terms()[0])}")
+        
+        except Exception as e:
+            raise QuantumSimulatorException(f"Failed to convert problem to Hamiltonian: {e}")
+        
+        # Create device
+        device = self._create_device(n_qubits)
+        
+        # Build VQE ansatz circuit
+        if verbose:
+            print(f"\n⚛️  Step 2: Building VQE ansatz circuit...")
+        
+        # Parameter count: ansatz_layers * (n_qubits rotations + n_qubits-1 entanglements)
+        # We use only rotations for simplicity
+        n_params = ansatz_layers * n_qubits
+        
+        if initial_params is not None:
+            if len(initial_params) != n_params:
+                raise ValueError(
+                    f"initial_params has {len(initial_params)} elements, "
+                    f"expected {n_params} for {ansatz_layers} layers"
+                )
+            params = initial_params.copy()
+        else:
+            params = np.random.uniform(0, 2 * np.pi, size=n_params)
+        
+        if verbose:
+            print(f"   ✓ Parameters: {n_params}")
+            print(f"   ✓ Circuit structure: {ansatz_layers} layers of rotations + entanglement")
+        
+        # Define VQE circuit
+        @qml.qnode(device)
+        def vqe_circuit(params):
+            """
+            Hardware-efficient VQE ansatz.
+            
+            Circuit structure (per layer):
+            1. Apply RY rotation to each qubit (parameterized)
+            2. Apply CNOT ladder for entanglement
+            3. Repeat for all layers
+            """
+            # Apply ansatz layers
+            for layer in range(ansatz_layers):
+                # Single-qubit rotations
+                for qubit in range(n_qubits):
+                    param_idx = layer * n_qubits + qubit
+                    qml.RY(params[param_idx], wires=qubit)
+                
+                # Entangling layer (CNOT ladder)
+                for qubit in range(n_qubits - 1):
+                    qml.CNOT(wires=[qubit, qubit + 1])
+                
+                # Wrap around for final qubit (optional)
+                if n_qubits > 2:
+                    qml.CNOT(wires=[n_qubits - 1, 0])
+            
+            # Measure expectation value
+            return qml.expval(hamiltonian)
+        
+        # Optimization tracking
+        if verbose:
+            print(f"\n🔧 Step 3: Classical optimization...")
+        
+        optimization_history = []
+        iteration_count = [0]
+        best_cost = [float('inf')]
+        best_params = [params.copy()]
+        
+        def callback(xk):
+            iteration_count[0] += 1
+            current_cost = vqe_circuit(xk)
+            optimization_history.append(current_cost)
+            
+            if current_cost < best_cost[0]:
+                best_cost[0] = current_cost
+                best_params[0] = xk.copy()
+            
+            if verbose and iteration_count[0] % 10 == 0:
+                print(f"   Iteration {iteration_count[0]}: cost = {current_cost:.6f}")
+        
+        # Run optimization
+        result = minimize(
+            lambda p: vqe_circuit(p),
+            params,
+            method=optimizer,
+            callback=callback,
+            options={'maxiter': maxiter}
+        )
+        
+        optimal_params = result.x if result.success else best_params[0]
+        
+        if verbose:
+            print(f"\n   ✓ Optimization complete!")
+            print(f"   ✓ Final cost: {result.fun:.6f}")
+            print(f"   ✓ Iterations: {iteration_count[0]}")
+            print(f"   ✓ Convergence: {result.success}")
+        
+        # Sample solutions from optimized circuit
+        if verbose:
+            print(f"\n📡 Step 4: Sampling solution...")
+        
+        # Modify circuit to return samples instead of expectation
+        @qml.qnode(device)
+        def sampling_circuit(params):
+            # Apply same ansatz
+            for layer in range(ansatz_layers):
+                for qubit in range(n_qubits):
+                    param_idx = layer * n_qubits + qubit
+                    qml.RY(params[param_idx], wires=qubit)
+                
+                for qubit in range(n_qubits - 1):
+                    qml.CNOT(wires=[qubit, qubit + 1])
+                
+                if n_qubits > 2:
+                    qml.CNOT(wires=[n_qubits - 1, 0])
+            
+            # Measure all qubits
+            return [qml.sample(qml.PauliZ(i)) for i in range(n_qubits)]
+        
+        # Get samples
+        device.shots = self.shots
+        samples = sampling_circuit(optimal_params)
+        
+        # Convert samples to bitstrings and find best
+        # PauliZ returns +1/-1, convert to 0/1
+        bitstrings = []
+        for shot in range(self.shots):
+            bitstring = [(1 - samples[i][shot]) // 2 for i in range(n_qubits)]
+            bitstrings.append(bitstring)
+        
+        # Find best bitstring by evaluating cost
+        best_solution = None
+        best_solution_cost = float('inf')
+        
+        for bitstring in set(tuple(b) for b in bitstrings):
+            bitstring_list = list(bitstring)
+            if problem.validate_solution(bitstring_list):
+                cost = problem.calculate_cost(bitstring_list)
+                if cost < best_solution_cost:
+                    best_solution_cost = cost
+                    best_solution = bitstring_list
+        
+        # Fallback: use most frequent bitstring
+        if best_solution is None:
+            from collections import Counter
+            bitstring_counts = Counter(tuple(b) for b in bitstrings)
+            best_solution = list(bitstring_counts.most_common(1)[0][0])
+            best_solution_cost = problem.calculate_cost(best_solution)
+        
+        # End timing and measure energy
+        end_time = time.time()
+        elapsed_time_ms = int((end_time - start_time) * 1000)
+        
+        # Estimate energy consumption
+        circuit_depth = ansatz_layers * (n_qubits + n_qubits - 1)
+        energy_breakdown = self._calculate_photonic_energy_consumption(
+            circuit_depth=circuit_depth,
+            num_qubits=n_qubits,
+            num_shots=self.shots * iteration_count[0]  # Total shots across all iterations
+        )
+        
+        if verbose:
+            print(f"\n   ✓ Best solution found: {best_solution}")
+            print(f"   ✓ Solution cost: {best_solution_cost:.6f}")
+            print(f"   ✓ Total time: {elapsed_time_ms}ms")
+            print(f"   ✓ Energy consumed: {energy_breakdown['total_energy_mj']:.2f}mJ")
+            print("="*70 + "\n")
+        
+        # Return standardized result
+        return {
+            'solution': best_solution,
+            'cost': best_solution_cost,
+            'time_ms': elapsed_time_ms,
+            'energy_mj': energy_breakdown['total_energy_mj'],
+            'iterations': iteration_count[0],
+            'metadata': {
+                'algorithm': 'vqe',
+                'solver_type': self.solver_type,
+                'solver_name': self.solver_name,
+                'optimal_params': optimal_params,
+                'optimization_history': optimization_history,
+                'convergence_reason': 'converged' if result.success else 'max_iterations',
+                'circuit_depth': circuit_depth,
+                'num_qubits': n_qubits,
+                'final_expectation': result.fun,
+                'optimizer': optimizer,
+                'ansatz_layers': ansatz_layers,
+                'ansatz_type': 'hardware_efficient',
+                'energy_breakdown': energy_breakdown,
+            }
+        }
+    
     def _build_qaoa_circuit(
         self,
         qubo_matrix: np.ndarray,
@@ -2207,12 +2506,14 @@ class QuantumSimulator(SolverBase):
     def solve(
         self,
         problem: Any,
+        algorithm: str = 'qaoa',
         p: int = 1,
         maxiter: int = 100,
         optimizer: str = 'COBYLA',
         initial_params: Optional[np.ndarray] = None,
         convergence_threshold: float = 1e-6,
-        verbose: bool = True
+        verbose: bool = True,
+        **kwargs
     ) -> Dict[str, Any]:
         """
         Solve optimization problem using QAOA with hybrid quantum-classical optimization.
@@ -2479,6 +2780,23 @@ class QuantumSimulator(SolverBase):
             raise ImportError(
                 "Scipy is required for classical optimization. "
                 "Install with: pip install scipy"
+            )
+        
+        # Route to specific algorithm
+        algorithm = algorithm.lower()
+        if algorithm == 'vqe':
+            return self._solve_vqe(
+                problem=problem,
+                maxiter=maxiter,
+                optimizer=optimizer,
+                initial_params=initial_params,
+                convergence_threshold=convergence_threshold,
+                verbose=verbose,
+                **kwargs
+            )
+        elif algorithm != 'qaoa':
+            raise ValueError(
+                f"Unknown algorithm '{algorithm}'. Supported: 'qaoa', 'vqe'"
             )
         
         # Start timing for performance tracking

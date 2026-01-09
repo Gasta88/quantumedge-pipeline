@@ -927,6 +927,8 @@ class ClassicalSolver(SolverBase):
     def _solve_portfolio_scipy(
         self,
         problem: ProblemBase,
+        method: str = 'sharpe',
+        target_return: Optional[float] = None,
         **kwargs
     ) -> List[float]:
         """
@@ -940,17 +942,24 @@ class ClassicalSolver(SolverBase):
         
         This implementation uses scipy's optimization routines to solve:
         
-        Minimize: w^T Σ w (portfolio variance/risk)
-        Subject to:
-        - w^T μ ≥ target_return (minimum return constraint)
-        - Σ w_i = 1 (weights sum to 100%)
-        - w_i ≥ 0 (no short selling)
-        - w_i ≤ 1 (no single asset > 100%)
+        Method 1 - Maximize Sharpe Ratio (default):
+            Maximize: (w^T μ - r_f) / √(w^T Σ w)
+            Subject to:
+            - Σ w_i = 1 (weights sum to 100%)
+            - w_i ≥ 0 (no short selling)
+        
+        Method 2 - Minimum Variance:
+            Minimize: w^T Σ w (portfolio variance/risk)
+            Subject to:
+            - Σ w_i = 1 (weights sum to 100%)
+            - w^T μ ≥ target_return (optional minimum return)
+            - w_i ≥ 0 (no short selling)
         
         Where:
         - w: portfolio weights (decision variables)
         - Σ: covariance matrix (risk)
         - μ: expected returns vector
+        - r_f: risk-free rate
         
         Time Complexity: O(n³)
         - Dominated by quadratic programming solver
@@ -977,48 +986,138 @@ class ClassicalSolver(SolverBase):
         - May not capture all real-world constraints
         - Requires good estimates of returns and covariances
         
-        Note:
-        -----
-        This is a placeholder. To implement:
-        1. Extract returns and covariance from problem
-        2. Use scipy.optimize.minimize with SLSQP or trust-constr
-        3. Set up constraints for sum-to-one and bounds
-        
-        For now, returns equal weights as simple baseline.
-        
         Args:
-            problem: Portfolio optimization problem
+            problem: Portfolio optimization problem (PortfolioProblem instance)
+            method: Optimization method ('sharpe' or 'min_variance')
+            target_return: Minimum required return (for min_variance method)
+            **kwargs: Additional optimizer parameters
         
         Returns:
             Weight vector [w1, w2, ..., wn] summing to 1.0
+            
+        Raises:
+            ImportError: If scipy not available
+            ValueError: If problem is not PortfolioProblem
         """
-        logger.debug("Solving portfolio optimization with scipy")
+        logger.debug(f"Solving portfolio optimization with scipy (method={method})")
         
         try:
             from scipy.optimize import minimize
             
+            # Extract portfolio problem data
+            if not hasattr(problem, 'expected_returns') or not hasattr(problem, 'covariance_matrix'):
+                raise ValueError(
+                    "Problem must be PortfolioProblem with expected_returns and covariance_matrix"
+                )
+            
             n = problem.problem_size
+            expected_returns = problem.expected_returns
+            covariance_matrix = problem.covariance_matrix
+            risk_free_rate = getattr(problem, 'risk_free_rate', 0.02)
             
-            # TODO: Extract actual returns and covariance from problem
-            # For now, return equal weights as baseline
-            logger.warning("scipy portfolio solver not fully implemented, returning equal weights")
+            # Initial guess: equal weights
+            initial_weights = np.ones(n) / n
             
-            weights = [1.0 / n] * n
-            self._last_iterations = 1
+            # Constraints
+            constraints = []
             
-            return weights
+            # Constraint 1: Weights sum to 1
+            constraints.append({
+                'type': 'eq',
+                'fun': lambda w: np.sum(w) - 1.0
+            })
+            
+            # Constraint 2: Minimum return (if specified and using min_variance)
+            if method == 'min_variance' and target_return is not None:
+                constraints.append({
+                    'type': 'ineq',
+                    'fun': lambda w: np.dot(w, expected_returns) - target_return
+                })
+            
+            # Bounds: Each weight between 0 and 1 (no short selling, no leverage)
+            bounds = tuple((0, 1) for _ in range(n))
+            
+            # Define objective functions
+            if method == 'sharpe':
+                # Maximize Sharpe ratio = minimize negative Sharpe
+                def objective(w):
+                    portfolio_return = np.dot(w, expected_returns)
+                    portfolio_volatility = np.sqrt(np.dot(w, np.dot(covariance_matrix, w)))
+                    
+                    # Avoid division by zero
+                    if portfolio_volatility < 1e-10:
+                        return 1e10  # Large penalty
+                    
+                    sharpe_ratio = (portfolio_return - risk_free_rate) / portfolio_volatility
+                    return -sharpe_ratio  # Minimize negative Sharpe = maximize Sharpe
+                
+            elif method == 'min_variance':
+                # Minimize portfolio variance
+                def objective(w):
+                    return np.dot(w, np.dot(covariance_matrix, w))
+            
+            else:
+                raise ValueError(f"Unknown method: {method}. Use 'sharpe' or 'min_variance'")
+            
+            # Optimize
+            result = minimize(
+                objective,
+                initial_weights,
+                method='SLSQP',  # Sequential Least Squares Programming
+                bounds=bounds,
+                constraints=constraints,
+                options={
+                    'ftol': 1e-9,
+                    'maxiter': 1000
+                }
+            )
+            
+            # Check if optimization succeeded
+            if not result.success:
+                logger.warning(
+                    f"Optimization did not converge: {result.message}. "
+                    f"Using best result found."
+                )
+            
+            # Extract optimal weights
+            optimal_weights = result.x
+            
+            # Ensure weights sum to 1 (numerical precision)
+            optimal_weights = optimal_weights / np.sum(optimal_weights)
+            
+            # Track iterations
+            self._last_iterations = result.nit if hasattr(result, 'nit') else 1
+            
+            # Log results
+            portfolio_return = np.dot(optimal_weights, expected_returns)
+            portfolio_volatility = np.sqrt(np.dot(optimal_weights, np.dot(covariance_matrix, optimal_weights)))
+            sharpe_ratio = (portfolio_return - risk_free_rate) / portfolio_volatility if portfolio_volatility > 0 else 0
+            
+            logger.debug(
+                f"Portfolio optimization complete: "
+                f"return={portfolio_return:.4f}, "
+                f"volatility={portfolio_volatility:.4f}, "
+                f"sharpe={sharpe_ratio:.4f}, "
+                f"iterations={self._last_iterations}"
+            )
+            
+            return optimal_weights.tolist()
         
         except ImportError:
             logger.error("scipy not installed")
             # Return equal weights as fallback
             n = problem.problem_size
-            return [1.0 / n] * n
+            weights = [1.0 / n] * n
+            self._last_iterations = 0
+            return weights
         
         except Exception as e:
             logger.error(f"scipy solver failed: {e}")
             # Return equal weights as fallback
             n = problem.problem_size
-            return [1.0 / n] * n
+            weights = [1.0 / n] * n
+            self._last_iterations = 0
+            return weights
     
     def _solve_generic_simulated_annealing(
         self,

@@ -1,10 +1,12 @@
 # QuantumEdge Pipeline
 
+> **Status Legend**: ✅ = Fully Implemented & Tested | 🚧 = Interface Ready, Requires External Resources/SDK
+
 ## Overview
 
 ### What is QuantumEdge Pipeline?
 
-**QuantumEdge Pipeline** is a production-ready quantum-classical hybrid optimization framework designed specifically for **edge computing environments**. It routes computational workloads between classical and quantum solvers based on real-time problem analysis, resource constraints, and performance requirements.
+**QuantumEdge Pipeline** is a quantum-classical hybrid optimization framework designed specifically for **edge computing environments**. It routes computational workloads between classical and quantum solvers based on real-time problem analysis, resource constraints, and performance requirements.
 
 ### Why It Matters (Use-case for Rotonium)
 
@@ -118,12 +120,17 @@ Once services are running:
    │ Classical  │               │    Quantum     │
    │ Solvers    │               │    Solvers     │
    ├────────────┤               ├────────────────┤
-   │• Gurobi    │               │• Qiskit Aer    │
-   │• NetworkX  │               │• PennyLane     │
-   │• OR-Tools  │               │• IBM Quantum   │
-   │• SciPy     │               │• AWS Braket    │
-   └────────────┘               │• Rotonium QPU  │
-                                └────────────────┘
+   │• Greedy ✅ │               │• QAOA ✅       │
+   │• SimAnneal✅│               │• VQE ✅        │
+   │• OR-Tools✅│               │• PennyLane ✅  │
+   │• SciPy ✅  │               │• IBM Quantum🚧│
+   │• Gurobi 🚧│               │• AWS Braket 🚧│
+   │• NetworkX🚧│               │• Rotonium QPU🚧│
+   └────────────┘               └────────────────┘
+                                   ┌──────────────┐
+                                   │   Hybrid     │
+                                   │   Solvers ✅ │
+                                   └──────────────┘
                                         │
                                 ┌───────▼────────┐
                                 │   PostgreSQL   │
@@ -147,10 +154,36 @@ Once services are running:
 - Provides confidence scores and reasoning for decisions
 
 #### 3. **Solver Ecosystem** (`src/solvers/`)
-- **Classical Solvers**: Gurobi, NetworkX, OR-Tools, SciPy optimizers
-- **Quantum Solvers**: QAOA, VQE, Quantum Annealing simulations
-- **Hybrid Solvers**: Quantum-assisted classical optimization
-- **Photonic QPU Interface**: Rotonium hardware integration layer
+
+##### ✅ Implemented Solvers
+- **Classical Solvers**: 
+  - Greedy algorithms (MaxCut)
+  - Simulated Annealing (MaxCut, TSP, generic)
+  - OR-Tools (TSP with fallback)
+  - SciPy optimizers (Portfolio: Sharpe ratio maximization, minimum variance)
+- **Quantum Solvers**: 
+  - QAOA (Quantum Approximate Optimization Algorithm)
+  - VQE (Variational Quantum Eigensolver)
+  - Photonic quantum simulation with noise modeling
+- **Hybrid Solvers**: 
+  - Adaptive strategy (problem-size based routing)
+  - Quantum-assisted classical refinement
+  - Classical-first with quantum enhancement
+  - Parallel execution with best result selection
+  - Iterative quantum-classical collaboration
+
+##### 🚧 Planned/Not Implemented (Require Real Hardware or Licensing)
+- **Classical Solvers**: 
+  - Gurobi (requires commercial license)
+  - NetworkX advanced optimizers
+- **Quantum Hardware Interfaces**: 
+  - IBM Quantum (requires IBM Quantum account)
+  - AWS Braket (requires AWS account)
+  - Rotonium QPU (requires Rotonium hardware access)
+- **Quantum Algorithms**: 
+  - Quantum Annealing on real hardware (D-Wave)
+
+**Note**: Abstract interfaces for IBM Quantum, AWS Braket, and Rotonium are provided in `src/solvers/quantum_hardware_interface.py` but require actual SDK integration and hardware access credentials.
 
 #### 4. **Monitoring System** (`src/monitoring/`)
 - Tracks execution time, memory usage, energy consumption
@@ -177,310 +210,37 @@ Once services are running:
 
 ##  Usage Examples
 
-### 1. Submit a Problem
+For comprehensive usage examples including API calls, Python SDK integration, and direct solver usage, see **[docs/usage-examples.md](docs/usage-examples.md)**.
 
-```python
-import httpx
-import asyncio
+### Quick Examples
 
-async def submit_maxcut_problem():
-    """
-    Alternative MaxCut test script that matches the actual API implementation.
-    This script uses the correct endpoint and request schema.
-    """
-    async with httpx.AsyncClient() as client:
-        try:
-            # Using the correct endpoint and schema
-            response = await client.post(
-                "http://localhost:8000/api/v1/jobs/maxcut",
-                json={
-                    "num_nodes": 10,
-                    "edge_probability": 0.3,
-                    "edge_profile": "aerospace",
-                    "strategy": "balanced",
-                    "seed": 42
-                },
-                timeout=30.0
-            )
-            
-            # Check if request was successful
-            response.raise_for_status()
-            
-            result = response.json()
-            
-            # Display results
-            print("=" * 60)
-            print("MaxCut Job Results")
-            print("=" * 60)
-            print(f"Job ID: {result['job_id']}")
-            print(f"Solver Used: {result.get('solver_used', 'N/A')}")
-            print(f"Solution: {result.get('solution', 'N/A')}")
-            
-            return result
-            
-        except httpx.ConnectError as e:
-            print("Connection Error: Could not connect to the API server.")
-            print(f"Error: {e}")
-            return None
-            
-        except httpx.HTTPStatusError as e:
-            print(f"HTTP Error: {e.response.status_code}")
-            print(f"Response: {e.response.text}")
-            return None
-            
-        except Exception as e:
-            print(f"Unexpected Error: {type(e).__name__}")
-            print(f"Error: {e}")
-            return None
-
-# Run the async function
-if __name__ == "__main__":
-    result = asyncio.run(submit_maxcut_problem())
-    
-    if result:
-        print("Test completed successfully!")
-    else:
-        print("Test failed - see errors above")
-
-```
-
-**cURL equivalent:**
+#### Submit a Problem via API
 ```bash
-curl -s -w "\n%{http_code}" -X POST "http://localhost:8000/api/v1/jobs/maxcut" \
+curl -X POST "http://localhost:8000/api/v1/jobs/maxcut" \
   -H "Content-Type: application/json" \
-  -d '{
-    "num_nodes": 10,
-    "edge_probability": 0.3,
-    "edge_profile": "aerospace",
-    "strategy": "balanced",
-    "seed": 42
-  }'
+  -d '{"num_nodes": 10, "edge_probability": 0.3, "strategy": "balanced"}'
 ```
 
-### 2. Run Comparative Analysis
-
-Compare classical vs. quantum solvers side-by-side:
-
-```python
-import httpx
-import asyncio
-
-async def compare_solvers():
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            "http://localhost:8000/api/v1/jobs/comparative",
-            json={
-                "problem_type": "tsp",
-                "problem_size": 5,  # Number of cities (changed from cities array)
-                "edge_profile": "aerospace",  # Optional: aerospace, mobile, or ground_server
-                "seed": 42  # Optional: for reproducibility
-            },
-            timeout=120.0
-        )
-        comparison = response.json()
-        
-        print("=== Solver Comparison ===")
-        
-        # Classical solver results
-        print("\n[Classical Solver]")
-        print(f"  Time: {comparison['classical']['time_ms']:.3f}ms")
-        print(f"  Cost: {comparison['classical']['cost']}")
-        print(f"  Energy: {comparison['classical']['energy_mj']:.2f}mJ")
-        print(f"  Valid: {comparison['classical']['is_valid']}")
-        print(f"  Quality: {comparison['classical']['solution_quality']:.2%}")
-        if comparison['classical'].get('error'):
-            print(f"  Error: {comparison['classical']['error']}")
-        
-        # Quantum solver results
-        print("\n[Quantum Solver]")
-        print(f"  Time: {comparison['quantum']['time_ms']:.3f}ms")
-        print(f"  Cost: {comparison['quantum']['cost']}")
-        print(f"  Energy: {comparison['quantum']['energy_mj']:.2f}mJ")
-        print(f"  Valid: {comparison['quantum']['is_valid']}")
-        print(f"  Quality: {comparison['quantum']['solution_quality']:.2%}")
-        if comparison['quantum'].get('error'):
-            print(f"  Error: {comparison['quantum']['error']}")
-        
-        # Comparison metrics
-        print("\n[Comparison Metrics]")
-        if comparison.get('speedup_factor'):
-            print(f"  Speedup Factor: {comparison['speedup_factor']:.2f}x")
-        if comparison.get('energy_ratio'):
-            print(f"  Energy Ratio: {comparison['energy_ratio']:.2f}x")
-        if comparison.get('quality_diff'):
-            print(f"  Quality Difference: {comparison['quality_diff']:.2%}")
-        
-        print(f"\n[Recommendation]")
-        print(f"  Winner: {comparison['recommendation']}")
-        print(f"  Reason: {comparison['recommendation_reason']}")
-        
-        return comparison
-
-asyncio.run(compare_solvers())
-```
-
-### 3. Query Historical Data
-
-Retrieve past job results and performance metrics:
-
-```python
-import httpx
-import asyncio
-
-async def test_system_and_execute():
-    """
-    Working alternative that demonstrates available functionality.
-    Since job retrieval and historical metrics endpoints don't exist,
-    we'll submit a job and immediately get results, then check system stats.
-    """
-    async with httpx.AsyncClient() as client:
-        
-        # 1. Check system health
-        print("=== System Health Check ===")
-        response = await client.get("http://localhost:8000/health")
-        health = response.json()
-        print(f"Status: {health['status']}")
-        print(f"Version: {health['version']}")
-        print(f"Components: {health['components']}")
-        
-        # 2. Get system information
-        print("\n=== System Information ===")
-        response = await client.get("http://localhost:8000/api/v1/system/info")
-        info = response.json()
-        print(f"Application: {info['application']['name']}")
-        print(f"Environment: {info['application']['environment']}")
-        print(f"Quantum Backend: {info['configuration']['quantum_backend']}")
-        print(f"Max Qubits: {info['configuration']['quantum_max_qubits']}")
-        print(f"Problem Types: {info['capabilities']['problem_types']}")
-        print(f"Solver Types: {info['capabilities']['solver_types']}")
-        
-        # 3. Submit a MaxCut job and get immediate results
-        print("\n=== Submitting MaxCut Job ===")
-        response = await client.post(
-            "http://localhost:8000/api/v1/jobs/maxcut",
-            json={
-                "num_nodes": 20,
-                "edge_probability": 0.3,
-                "edge_profile": "aerospace",
-                "strategy": "balanced",
-                "seed": 42
-            },
-            timeout=60.0
-        )
-        job_result = response.json()
-        print(F"Debug: {job_result.keys()}")
-        print(f"Job ID: {job_result['job_id']}")
-        print(f"Status: {job_result['status']}")
-        print(f"Problem Size: {job_result['problem_size']}")
-        print(f"Solver Used: {job_result['solver_used']}")
-        print(f"Routing Decision: {job_result['routing_decision']}")
-        print(f"Routing Confidence: {job_result['routing_confidence']:.2%}")
-        print(f"Cost: {job_result['cost']}")
-        print(f"Execution Time: {job_result['time_ms']:.2f}ms")
-        print(f"Energy Consumed: {0 if job_result['energy_consumed_mj'] is None else job_result['energy_consumed_mj']:.2f}mJ")
-        print(f"Solution Valid: {job_result['is_valid']}")
-        print(f"Solution Quality: {job_result['solution_quality']:.2%}")
-        print(f"Reasoning: {job_result['routing_reason']}")
-        
-        # 4. Get system statistics (in-memory only)
-        print("\n=== System Statistics ===")
-        response = await client.get("http://localhost:8000/api/v1/system/stats")
-        stats = response.json()
-        print(f"Jobs Executed: {stats['statistics']['jobs_executed']}")
-        print(f"Jobs Failed: {stats['statistics']['jobs_failed']}")
-        print(f"Success Rate: {stats['statistics']['success_rate']:.2%}")
-        print(f"Avg Execution Time: {stats['statistics']['average_execution_time_ms']:.2f}ms")
-        print(f"Total Execution Time: {stats['statistics']['total_execution_time_ms']:.2f}ms")
-        
-        # 5. Submit comparative analysis
-        print("\n=== Comparative Analysis ===")
-        response = await client.post(
-            "http://localhost:8000/api/v1/jobs/comparative",
-            json={
-                "problem_type": "tsp",
-                "problem_size": 10,
-                "edge_profile": "aerospace",
-                "seed": 42
-            },
-            timeout=120.0
-        )
-        comparison = response.json()
-        
-        print(f"\nClassical Solver:")
-        print(f"  Time: {comparison['classical']['time_ms']:.2f}ms")
-        print(f"  Cost: {comparison['classical']['cost']:.4f}")
-        print(f"  Quality: {comparison['classical']['solution_quality']:.2%}")
-        
-        print(f"\nQuantum Solver:")
-        print(f"  Time: {comparison['quantum']['time_ms']:.2f}ms")
-        print(f"  Cost: {comparison['quantum']['cost']:.4f}")
-        print(f"  Quality: {comparison['quantum']['solution_quality']:.2%}")
-        
-        print(f"\nRecommendation: {comparison['recommendation']}")
-        print(f"Reason: {comparison['recommendation_reason']}")
-        
-        # 6. Check edge profiles
-        print("\n=== Edge Profiles ===")
-        response = await client.get("http://localhost:8000/api/v1/config/edge-profiles")
-        profiles = response.json()
-        for name, profile in profiles['profiles'].items():
-            print(f"\n{name.upper()}:")
-            print(f"  Power Budget: {profile['power_budget_watts']}W")
-            print(f"  Memory: {profile['memory_mb']}MB")
-            print(f"  CPU Cores: {profile['cpu_cores']}")
-            print(f"  Max Execution Time: {profile['max_execution_time_sec']}s")
-
-asyncio.run(test_system_and_execute())
-```
-
-### 4. Python SDK Example
-
-For direct integration without API calls:
-
+#### Python SDK - Direct Solver Usage
 ```python
 from src.problems.maxcut import MaxCutProblem
-from src.router.quantum_router import QuantumRouter, RoutingStrategy
-from src.router.edge_simulator import EdgeEnvironment, DeploymentProfile
-from src.solvers.classical_solver import ClassicalSolver
 from src.solvers.quantum_simulator import QuantumSimulator
 
-# Create problem
-problem = MaxCutProblem(num_nodes=15)
-problem.generate(edge_probability=0.3, seed=42)
-# Create router
-router = QuantumRouter(
-            strategy=RoutingStrategy.BALANCED,
-            enable_learning=True
-        )
-# Create environment
-edge_env = EdgeEnvironment(DeploymentProfile.AEROSPACE)
-# Route problem
-routing_result = router.route_problem(problem, edge_env)
-# Get solver
-decision = routing_result['decision']
-if decision == 'classical':
-    solver = ClassicalSolver()
-    print("   Using ClassicalSolver (greedy approximation)")
-elif decision == 'quantum':
-    solver = QuantumSimulator()
-    print("   Using QuantumSimulator (QAOA simulation)")
-else:
-    print(f"   Unknown solver type: {decision}, defaulting to classical")
-    solver = ClassicalSolver()
+problem = MaxCutProblem(num_nodes=10)
+problem.generate(edge_probability=0.5, seed=42)
 
-# Execute solver
-result = solver.solve(problem)
-print(f"Problem Size:      {problem.num_nodes} nodes")
-print(f"Solver Used:       {decision}")
-print(f"Execution Time:    {result['time_ms']:.3f} s")
-print(f"Energy Consumed:   {result['energy_mj']:.2f} J")
-print(f"Solution Valid:    {result['solution']}")
-print(f"\nSolution (partition):")
-print(f"  Set 0: {[i for i, v in enumerate(result['solution']) if v == 0]}")
-print(f"  Set 1: {[i for i, v in enumerate(result['solution']) if v == 1]}")
-print("=" * 70)
-print("Test completed successfully!")
+solver = QuantumSimulator(backend='default.qubit', shots=1024)
+result = solver.solve(problem, algorithm='qaoa')  # or 'vqe'
 ```
+
+For more examples including:
+- Comparative analysis between classical and quantum solvers
+- System status and statistics queries
+- Hybrid solver strategies
+- Portfolio optimization
+- Router-based automatic solver selection
+
+See the complete guide: **[docs/usage-examples.md](docs/usage-examples.md)**
 
 ---
 
@@ -504,24 +264,48 @@ The pipeline demonstrates Rotonium's competitive advantage in:
 - **Space-Based Computing**: Radiation-resistant, low-power quantum operations
 
 #### 3. **Path to Real Hardware Integration**
-Clear integration pathway from simulation to real QPU:
+Clear integration pathway from simulation to real QPU (Abstract interfaces implemented, SDK integration required):
 
 ```python
-# Current: Simulation
-from src.solvers.quantum_solver import QuantumSolver
-solver = QuantumSolver(backend='qiskit_aer')
+# ✅ Current: Simulation (Fully Implemented)
+from src.solvers.quantum_simulator import QuantumSimulator
+solver = QuantumSimulator(backend='default.qubit', shots=1024)
+result = solver.solve(problem, algorithm='qaoa')  # or 'vqe'
 
-# Future: Rotonium Hardware
-from src.solvers.rotonium_solver import RotoniumSolver
-solver = RotoniumSolver(
+# 🚧 Future: Rotonium Hardware (Abstract Interface Ready)
+from src.solvers.quantum_hardware_interface import create_hardware_interface
+solver = create_hardware_interface(
+    'rotonium',
     api_key='your_api_key',
-    device='rotonium_photonic_qpu_v1',
-    calibration_data='latest'
+    device='rotonium_photonic_qpu_v1'
 )
+# Note: Requires Rotonium SDK and hardware access credentials
+result = solver.submit_job(problem)
 
-# Same interface, seamless transition!
-result = solver.solve(problem)
+# 🚧 Alternative: IBM Quantum (Abstract Interface Ready)
+solver = create_hardware_interface(
+    'ibm',
+    api_key='your_ibm_token',
+    backend='ibm_nairobi'
+)
+# Note: Requires Qiskit IBM Runtime and IBM Quantum account
+result = solver.submit_job(problem)
+
+# 🚧 Alternative: AWS Braket (Abstract Interface Ready)
+solver = create_hardware_interface(
+    'aws',
+    region='us-east-1',
+    device='Rigetti/Aspen-M-3'
+)
+# Note: Requires AWS credentials and Braket SDK
+result = solver.submit_job(problem)
 ```
+
+**Integration Status**:
+- ✅ Abstract interfaces defined in `src/solvers/quantum_hardware_interface.py`
+- ✅ Standardized job submission and result retrieval methods
+- 🚧 Requires actual SDK integration (Qiskit IBM Runtime, AWS Braket SDK, Rotonium SDK)
+- 🚧 Requires hardware access credentials and accounts
 
 #### 4. **Value Proposition for Customers**
 
@@ -704,27 +488,49 @@ docker-compose exec api poetry run pytest tests/performance/ --benchmark-only
 
 ### Solver Algorithms Used
 
-#### Classical Solvers
-- **Gurobi**: Mixed Integer Linear Programming (MILP) for exact solutions
-- **NetworkX**: Graph algorithms (Minimum Cut, Shortest Path)
-- **OR-Tools**: Constraint programming for TSP and routing
-- **SciPy**: Continuous optimization (SLSQP, COBYLA)
+#### ✅ Implemented Classical Solvers
+- **Greedy Algorithms**: Fast approximation for MaxCut problems (O(n×m) complexity)
+- **Simulated Annealing**: Metaheuristic for MaxCut, TSP, and generic optimization
+- **OR-Tools**: Constraint programming for TSP with fallback to simulated annealing
+- **SciPy**: Continuous optimization (SLSQP) for portfolio optimization
+  - Sharpe ratio maximization
+  - Minimum variance portfolio with target return constraints
+  - Constraint handling (weights sum to 1, no short selling)
 
-#### Quantum Solvers
+#### ✅ Implemented Quantum Solvers
 - **QAOA (Quantum Approximate Optimization Algorithm)**:
   - Variational quantum algorithm for combinatorial optimization
   - Parameterized quantum circuits with classical optimization loop
+  - Supports: COBYLA, BFGS, L-BFGS-B, Nelder-Mead optimizers
+  - Configurable circuit depth (p layers)
   - Best for: MaxCut, Graph Coloring, Number Partitioning
   
 - **VQE (Variational Quantum Eigensolver)**:
   - Hybrid quantum-classical approach for ground state problems
-  - Ansatz: Hardware-efficient or problem-inspired circuits
-  - Best for: Molecular simulation, Portfolio optimization
+  - Hardware-efficient ansatz with configurable layer depth
+  - Same classical optimizer framework as QAOA
+  - Best for: Portfolio optimization, Molecular simulation
+  
+- **Photonic Quantum Simulation**:
+  - Room-temperature operation model
+  - Photonic noise characteristics (photon loss, detection efficiency)
+  - OAM (Orbital Angular Momentum) encoding support
+  - Energy efficiency modeling (~10,000x vs cryogenic systems)
 
-- **Quantum Annealing**:
-  - Adiabatic quantum computation simulation
-  - Maps problems to Ising models
-  - Best for: QUBO (Quadratic Unconstrained Binary Optimization)
+#### ✅ Implemented Hybrid Solvers
+- **Adaptive Strategy**: Automatic routing based on problem size and complexity
+- **Quantum-Assisted**: Classical preprocessing with quantum refinement
+- **Classical-First**: Classical solution with quantum enhancement attempts
+- **Parallel Execution**: Run both solvers and select best result
+- **Iterative Collaboration**: Multi-round quantum-classical optimization
+
+#### 🚧 Planned (Not Implemented - Require External Resources)
+- **Gurobi**: Mixed Integer Linear Programming (MILP) - requires commercial license
+- **NetworkX**: Advanced graph algorithms - integration planned
+- **Quantum Annealing**: Adiabatic quantum computation on real hardware (D-Wave)
+- **IBM Quantum**: Real quantum hardware execution (requires IBM Quantum account)
+- **AWS Braket**: Cloud quantum computing service (requires AWS account)
+- **Rotonium QPU**: Photonic quantum processor (requires hardware access)
 
 ### Routing Decision Logic
 
