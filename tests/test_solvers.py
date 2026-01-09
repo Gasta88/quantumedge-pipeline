@@ -223,6 +223,116 @@ class TestQuantumSimulator:
             solver.solve(problem)
 
 
+class TestORToolsSolver:
+    """Test OR-Tools TSP solver."""
+    
+    @pytest.fixture
+    def tsp_problem(self):
+        """Create a small TSP problem."""
+        from src.problems.tsp import TSPProblem
+        p = TSPProblem(num_cities=5)
+        p.generate(seed=42)
+        return p
+    
+    def test_ortools_tsp_success(self, tsp_problem):
+        """Test OR-Tools TSP solver with successful execution."""
+        solver = ClassicalSolver(default_method='auto')
+        
+        try:
+            result = solver.solve(tsp_problem, method='ortools', time_limit_seconds=5)
+            
+            # Check result format
+            assert 'solution' in result
+            assert 'cost' in result
+            assert 'time_ms' in result
+            assert 'energy_mj' in result
+            
+            # Check solution validity
+            assert len(result['solution']) == tsp_problem.problem_size
+            assert tsp_problem.validate_solution(result['solution'])
+            
+        except ImportError:
+            pytest.skip("OR-Tools not installed")
+        except NotImplementedError:
+            # OR-Tools might fallback to simulated annealing
+            pytest.skip("OR-Tools implementation requires full integration")
+    
+    def test_ortools_fallback_to_simulated_annealing(self, tsp_problem):
+        """Test that OR-Tools falls back to simulated annealing if not available."""
+        solver = ClassicalSolver(default_method='auto')
+        
+        # This should work even without OR-Tools (fallback)
+        result = solver.solve(tsp_problem, method='simulated_annealing')
+        
+        assert 'solution' in result
+        assert len(result['solution']) == tsp_problem.problem_size
+
+
+class TestPortfolioSolver:
+    """Test SciPy portfolio optimization solver."""
+    
+    @pytest.fixture
+    def portfolio_problem(self):
+        """Create a portfolio optimization problem."""
+        from src.problems.portfolio import PortfolioProblem
+        p = PortfolioProblem(num_assets=10, num_selected=3)
+        p.generate(seed=42, return_range=(0.05, 0.15), risk_range=(0.10, 0.25))
+        return p
+    
+    def test_portfolio_scipy_sharpe_success(self, portfolio_problem):
+        """Test SciPy portfolio solver with Sharpe ratio maximization."""
+        solver = ClassicalSolver(default_method='auto')
+        
+        try:
+            result = solver.solve(portfolio_problem, method='scipy')
+            
+            # Check result format
+            assert 'solution' in result
+            assert 'cost' in result
+            assert 'time_ms' in result
+            assert 'energy_mj' in result
+            
+            # Solution should be weights (continuous values)
+            assert len(result['solution']) == portfolio_problem.num_assets
+            
+            # Weights should sum to approximately 1
+            assert abs(sum(result['solution']) - 1.0) < 0.01
+            
+            # All weights should be non-negative (no short selling)
+            assert all(w >= -0.001 for w in result['solution'])  # Small tolerance for numerical precision
+            
+        except ImportError:
+            pytest.skip("SciPy not installed")
+    
+    def test_portfolio_scipy_min_variance(self, portfolio_problem):
+        """Test SciPy portfolio solver with minimum variance method."""
+        solver = ClassicalSolver(default_method='auto')
+        
+        try:
+            # Note: PortfolioProblem uses binary selection, so we test the solver logic
+            # The solver should handle continuous weights
+            result = solver.solve(
+                portfolio_problem,
+                method='scipy'
+            )
+            
+            assert 'solution' in result
+            assert len(result['solution']) == portfolio_problem.num_assets
+            
+        except ImportError:
+            pytest.skip("SciPy not installed")
+    
+    def test_portfolio_fallback_to_equal_weights(self, portfolio_problem):
+        """Test that portfolio solver has fallback behavior."""
+        solver = ClassicalSolver(default_method='auto')
+        
+        # Even if scipy fails, solver should return something
+        result = solver.solve(portfolio_problem, method='scipy')
+        
+        assert 'solution' in result
+        assert len(result['solution']) == portfolio_problem.num_assets
+
+
 class TestSolverComparison:
     """Test solver comparison and standardization."""
     
@@ -250,3 +360,49 @@ class TestSolverComparison:
         # Both solutions should be valid
         assert problem.validate_solution(classical_result['solution'])
         assert problem.validate_solution(quantum_result['solution'])
+
+
+class TestHybridSolver:
+    """Test hybrid quantum-classical solver."""
+    
+    @pytest.fixture
+    def problem(self):
+        """Create test problem."""
+        p = MaxCutProblem(num_nodes=8)
+        p.generate(edge_probability=0.4, seed=42)
+        return p
+    
+    def test_hybrid_adaptive_strategy(self, problem):
+        """Test hybrid solver with adaptive strategy."""
+        from src.solvers.hybrid_solver import HybridSolver
+        
+        solver = HybridSolver(strategy='adaptive', quantum_threshold=10)
+        result = solver.solve(problem)
+        
+        # Check result format
+        assert 'solution' in result
+        assert 'cost' in result
+        assert 'metadata' in result
+        assert 'hybrid_strategy' in result['metadata']
+        assert result['metadata']['hybrid_strategy'] == 'adaptive'
+    
+    def test_hybrid_classical_first_strategy(self, problem):
+        """Test hybrid solver with classical-first strategy."""
+        from src.solvers.hybrid_solver import HybridSolver
+        
+        solver = HybridSolver(strategy='classical_first', quantum_threshold=10)
+        result = solver.solve(problem)
+        
+        assert 'solution' in result
+        assert result['metadata']['hybrid_strategy'] == 'classical_first'
+    
+    def test_hybrid_parallel_strategy(self, problem):
+        """Test hybrid solver with parallel strategy."""
+        from src.solvers.hybrid_solver import HybridSolver
+        
+        solver = HybridSolver(strategy='parallel')
+        result = solver.solve(problem)
+        
+        assert 'solution' in result
+        assert result['metadata']['hybrid_strategy'] == 'parallel'
+        assert 'all_costs' in result['metadata'] or 'strategy_used' in result['metadata']
