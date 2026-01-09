@@ -18,23 +18,7 @@ TimescaleDB is an open-source time-series database built on PostgreSQL. Perfect 
   - Compression for historical data
   - Full PostgreSQL compatibility
 
-### 2. redis
-**Image:** `redis:7-alpine`
-
-Redis serves as a high-performance cache and task queue for the quantum-classical pipeline.
-
-- **Port:** 6379
-- **Data Volume:** `redis_data` (named volume)
-- **Configuration:**
-  - Append-only file (AOF) persistence
-  - 512MB max memory with LRU eviction
-- **Use Cases:**
-  - Result caching
-  - Task queue (Celery/RQ)
-  - Session storage
-  - Real-time metrics
-
-### 3. grafana
+### 2. grafana
 **Image:** `grafana/grafana:latest`
 
 Grafana provides powerful visualization dashboards for monitoring the quantum-classical pipeline performance.
@@ -51,9 +35,8 @@ Grafana provides powerful visualization dashboards for monitoring the quantum-cl
 **Datasources:**
 - TimescaleDB (default) - Main database queries
 - Prometheus - Application metrics
-- Redis - Cache and queue monitoring
 
-### 4. app (FastAPI Backend)
+### 3. app (FastAPI Backend)
 **Built from:** `Dockerfile`
 
 The main FastAPI application serving the quantum-classical routing API.
@@ -69,9 +52,8 @@ The main FastAPI application serving the quantum-classical routing API.
 
 **Dependencies:**
 - postgres-timescale (with health check)
-- redis (with health check)
 
-### 5. dashboard (Streamlit)
+### 4. dashboard (Streamlit)
 **Built from:** `Dockerfile`
 
 Interactive Streamlit dashboard for visualization and control.
@@ -87,7 +69,7 @@ Interactive Streamlit dashboard for visualization and control.
 **Dependencies:**
 - app (FastAPI backend)
 
-### 6. prometheus
+### 5. prometheus
 **Image:** `prom/prometheus:latest`
 
 Prometheus collects and stores metrics from all services.
@@ -112,7 +94,6 @@ Prometheus collects and stores metrics from all services.
 ### Persistent Volumes
 - `./data/postgres` - TimescaleDB data (host mount)
 - `./data/grafana` - Grafana dashboards and config (host mount)
-- `redis_data` - Redis persistence (named volume)
 - `prometheus_data` - Prometheus time-series data (named volume)
 
 ### Development Volumes
@@ -127,7 +108,6 @@ All services have configured health checks with the following parameters:
 | Service | Endpoint | Interval | Timeout | Retries | Start Period |
 |---------|----------|----------|---------|---------|--------------|
 | postgres-timescale | pg_isready | 10s | 5s | 5 | 30s |
-| redis | redis-cli ping | 10s | 3s | 5 | 10s |
 | grafana | /api/health | 30s | 10s | 3 | 40s |
 | app | /health | 30s | 10s | 3 | 40s |
 | dashboard | /_stcore/health | 30s | 10s | 3 | 40s |
@@ -175,9 +155,6 @@ docker-compose up -d --build
 # Database shell
 docker-compose exec postgres-timescale psql -U qe_user -d quantumedge
 
-# Redis CLI
-docker-compose exec redis redis-cli
-
 # App shell
 docker-compose exec app bash
 ```
@@ -216,9 +193,8 @@ nano .env
 
 ### Performance
 1. Tune PostgreSQL `shared_buffers` and `work_mem`
-2. Configure Redis maxmemory based on workload
-3. Scale app containers with `docker-compose up -d --scale app=3`
-4. Use connection pooling (PgBouncer) for database
+2. Scale app containers with `docker-compose up -d --scale app=3`
+3. Use connection pooling (PgBouncer) for database
 
 ### Monitoring
 1. Set up Grafana alerts
