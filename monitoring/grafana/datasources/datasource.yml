@@ -24,10 +24,3 @@ datasources:
     editable: true
     jsonData:
       timeInterval: 15s
-
-  - name: Redis
-    type: redis-datasource
-    access: proxy
-    url: redis://redis:6379
-    isDefault: false
-    editable: true

@@ -69,7 +69,6 @@ make ps
 # quantumedge-api       running   0.0.0.0:8000->8000/tcp
 # quantumedge-dashboard running   0.0.0.0:8501->8501/tcp
 # quantumedge-postgres  running   0.0.0.0:5432->5432/tcp
-# quantumedge-redis     running   0.0.0.0:6379->6379/tcp
 ```
 
 ### Access Dashboards

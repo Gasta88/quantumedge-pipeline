@@ -1,4 +1,4 @@
-.PHONY: help build up down restart logs ps clean init-db shell-db shell-redis shell-api test
+.PHONY: help build up down restart logs ps clean init-db shell-db shell-api test
 
 # Default target
 help:
@@ -16,7 +16,6 @@ help:
 	@echo "  make clean      - Stop and remove volumes"
 	@echo "  make init-db    - Initialize database"
 	@echo "  make shell-db   - Open PostgreSQL shell"
-	@echo "  make shell-redis - Open Redis CLI"
 	@echo "  make shell-api  - Open api container shell"
 	@echo "  make test       - Run tests"
 	@echo "  make backup-db  - Backup database"
@@ -85,10 +84,6 @@ init-db:
 # Database shell
 shell-db:
 	docker-compose exec postgres-timescale psql -U qe_user -d quantumedge
-
-# Redis CLI
-shell-redis:
-	docker-compose exec redis redis-cli
 
 # Api container shell
 shell-api:
