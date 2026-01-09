@@ -6,7 +6,7 @@
 
 ### What is QuantumEdge Pipeline?
 
-**QuantumEdge Pipeline** is a production-ready quantum-classical hybrid optimization framework designed specifically for **edge computing environments**. It routes computational workloads between classical and quantum solvers based on real-time problem analysis, resource constraints, and performance requirements.
+**QuantumEdge Pipeline** is a quantum-classical hybrid optimization framework designed specifically for **edge computing environments**. It routes computational workloads between classical and quantum solvers based on real-time problem analysis, resource constraints, and performance requirements.
 
 ### Why It Matters (Use-case for Rotonium)
 
