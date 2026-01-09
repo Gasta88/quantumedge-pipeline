@@ -24,24 +24,6 @@ services:
       - quantumedge-network
     shm_size: 256mb
 
-  redis:
-    image: redis:7-alpine
-    container_name: quantumedge-redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 3s
-      retries: 5
-      start_period: 10s
-    restart: unless-stopped
-    networks:
-      - quantumedge-network
-
   grafana:
     image: grafana/grafana:latest
     container_name: quantumedge-grafana
@@ -92,9 +74,6 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-quantumedge}
       POSTGRES_USER: ${POSTGRES_USER:-qe_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-qe_pass}
-      # Redis connection
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
       # Application settings
       APP_ENV: ${APP_ENV:-development}
       DEBUG: ${DEBUG:-true}
@@ -109,8 +88,6 @@ services:
       - ./logs:/app/logs
     depends_on:
       postgres-timescale:
-        condition: service_healthy
-      redis:
         condition: service_healthy
     command: >
       sh -c "
@@ -142,8 +119,6 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-quantumedge}
       POSTGRES_USER: ${POSTGRES_USER:-qe_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-qe_pass}
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
     env_file:
       - .env
     ports:
@@ -195,8 +170,6 @@ services:
 
 volumes:
   postgres_data:
-    driver: local
-  redis_data:
     driver: local
   prometheus_data:
     driver: local
