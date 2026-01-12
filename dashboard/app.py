@@ -66,6 +66,16 @@ def init_session_state():
     
     if 'job_history' not in st.session_state:
         st.session_state.job_history = []
+    
+    # Demo scenario state
+    if 'demo_loaded' not in st.session_state:
+        st.session_state.demo_loaded = False
+    
+    if 'demo_data' not in st.session_state:
+        st.session_state.demo_data = None
+    
+    if 'form_manually_edited' not in st.session_state:
+        st.session_state.form_manually_edited = False
 
 init_session_state()
 
@@ -110,7 +120,7 @@ def page_submit_problem():
     
     # Demo scenario selector
     st.markdown("### Quick Start")
-    col1, col2 = st.columns([3, 1])
+    col1, col2, col3 = st.columns([3, 1, 1])
     with col1:
         demo_selection = st.selectbox(
             "Load Demo Scenario",
@@ -119,15 +129,50 @@ def page_submit_problem():
         )
     with col2:
         load_demo = st.button("Load Demo", type="secondary")
+    with col3:
+        clear_demo = st.button("Clear Demo", type="secondary")
     
+    # Handle demo loading
     if load_demo and demo_selection != "None":
         scenario_data = load_demo_scenario(demo_selection)
-        st.success(f"✅ Loaded: {DEMO_SCENARIOS[demo_selection]['description']}")
-        # Populate form with demo data
         st.session_state.demo_data = scenario_data
+        st.session_state.demo_loaded = True
+        st.session_state.form_manually_edited = False
+        st.success(f"✅ Loaded: {DEMO_SCENARIOS[demo_selection]['description']}")
+        st.info("💡 Form fields below have been populated with demo data. You can modify them as needed.")
+    
+    # Handle demo clearing
+    if clear_demo:
+        st.session_state.demo_data = None
+        st.session_state.demo_loaded = False
+        st.session_state.form_manually_edited = False
+        st.success("✅ Demo data cleared. Form reset to defaults.")
+    
+    # Get default values from demo data if loaded, otherwise use defaults
+    if st.session_state.demo_loaded and st.session_state.demo_data and not st.session_state.form_manually_edited:
+        demo = st.session_state.demo_data
+        default_problem_type = demo['problem_type']
+        default_problem_size = demo['problem_size']
+        default_edge_profile = demo['edge_profile']
+        default_strategy = demo['strategy']
+        default_comparative_mode = demo.get('comparative_mode', False)
+        default_edge_probability = demo.get('problem_params', {}).get('edge_probability', 0.3)
+        default_seed = demo.get('problem_params', {}).get('seed', 42)
+    else:
+        default_problem_type = "MaxCut"
+        default_problem_size = 30
+        default_edge_profile = "aerospace"
+        default_strategy = "balanced"
+        default_comparative_mode = False
+        default_edge_probability = 0.3
+        default_seed = 42
     
     st.markdown("---")
     st.markdown("### Problem Configuration")
+    
+    # Show indicator if demo is loaded
+    if st.session_state.demo_loaded and st.session_state.demo_data:
+        st.info(f"📋 **Active Demo:** {st.session_state.demo_data['name']} - Modify any field to customize.")
     
     # Main configuration form
     with st.form("problem_form"):
@@ -137,6 +182,7 @@ def page_submit_problem():
             problem_type = st.selectbox(
                 "Problem Type",
                 options=["MaxCut", "TSP", "Portfolio"],
+                index=["MaxCut", "TSP", "Portfolio"].index(default_problem_type) if default_problem_type in ["MaxCut", "TSP", "Portfolio"] else 0,
                 help="Type of optimization problem to solve"
             )
             
@@ -144,7 +190,7 @@ def page_submit_problem():
                 "Problem Size",
                 min_value=10,
                 max_value=100,
-                value=30,
+                value=default_problem_size,
                 step=5,
                 help="Number of nodes/cities/assets depending on problem type"
             )
@@ -152,6 +198,7 @@ def page_submit_problem():
             edge_profile = st.selectbox(
                 "Edge Profile",
                 options=["aerospace", "mobile", "ground"],
+                index=["aerospace", "mobile", "ground"].index(default_edge_profile) if default_edge_profile in ["aerospace", "mobile", "ground"] else 0,
                 help="Target edge computing environment"
             )
         
@@ -159,12 +206,13 @@ def page_submit_problem():
             strategy = st.selectbox(
                 "Optimization Strategy",
                 options=["energy", "latency", "quality", "balanced"],
+                index=["energy", "latency", "quality", "balanced"].index(default_strategy) if default_strategy in ["energy", "latency", "quality", "balanced"] else 3,
                 help="What to optimize for in routing decision"
             )
             
             comparative_mode = st.checkbox(
                 "Comparative Mode",
-                value=False,
+                value=default_comparative_mode,
                 help="Run both classical and quantum solvers for comparison"
             )
             
@@ -173,9 +221,11 @@ def page_submit_problem():
                     "Graph Density (edge probability)",
                     min_value=0.1,
                     max_value=0.9,
-                    value=0.3,
+                    value=default_edge_probability,
                     step=0.1
                 )
+            else:
+                edge_probability = 0.3  # Default for non-MaxCut
         
         # Advanced options (collapsible)
         with st.expander("⚙️ Advanced Options"):
@@ -210,7 +260,7 @@ def page_submit_problem():
                     "Random Seed",
                     min_value=0,
                     max_value=99999,
-                    value=42,
+                    value=default_seed,
                     help="For reproducible problem generation"
                 )
         
@@ -223,6 +273,10 @@ def page_submit_problem():
     
     # Handle form submission
     if submit_button:
+        # Mark form as manually edited when submitted (overwrites demo)
+        if st.session_state.demo_loaded:
+            st.session_state.form_manually_edited = True
+        
         if st.session_state.job_running:
             st.error("❌ A job is already running. Please wait or abort it first.")
         else:
@@ -248,18 +302,27 @@ def page_submit_problem():
                         'custom_power': custom_power,
                         'timeout': timeout_override,
                         'solver_prefs': solver_prefs,
-                        'submitted_at': datetime.now()
+                        'submitted_at': datetime.now(),
+                        'from_demo': st.session_state.demo_loaded and not st.session_state.form_manually_edited,
+                        'demo_name': st.session_state.demo_data.get('name') if st.session_state.demo_data else None
                     }
                     
                     st.session_state.current_job = job_config
                     st.session_state.job_running = True
                     
-                    st.success("✅ Job submitted successfully! Go to 'Live Execution' to monitor progress.")
+                    if job_config['from_demo']:
+                        st.success(f"✅ Job submitted from demo: {job_config['demo_name']}! Go to 'Live Execution' to monitor progress.")
+                    else:
+                        st.success("✅ Job submitted successfully! Go to 'Live Execution' to monitor progress.")
                     
                 except Exception as e:
                     st.error(f"❌ Error creating problem: {str(e)}")
     
     if clear_button:
+        # Clear demo data when clearing form
+        st.session_state.demo_data = None
+        st.session_state.demo_loaded = False
+        st.session_state.form_manually_edited = False
         st.rerun()
     
     # Display current configuration summary

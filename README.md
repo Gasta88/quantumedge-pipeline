@@ -336,52 +336,85 @@ For detailed integration guide, see [**docs/rotonium-integration.md**](docs/roto
 
 Run these demos on the interactive dashboard at http://localhost:8501
 
+### Using Demo Scenarios in the Dashboard
+
+The Streamlit dashboard includes pre-configured demo scenarios that automatically populate the problem submission form:
+
+1. **Navigate to "Submit Problem" page**
+2. **Select a demo scenario** from the dropdown (e.g., "AEROSPACE_ROUTING", "FINANCIAL_PORTFOLIO", "ML_GRAPH_PARTITION")
+3. **Click "Load Demo"** - Form fields will be populated with demo data
+4. **Optional:** Modify any parameters as needed (form will remember your changes)
+5. **Click "🚀 Submit Job"** to run the problem
+6. **Click "Clear Demo"** to reset to default values
+
+**Features:**
+- ✅ Demo data automatically populates form fields
+- ✅ Manual edits override demo settings
+- ✅ Job submission requires explicit button click
+- ✅ Visual indicators show when demo is active
+
 ### 1.  Aerospace Routing Optimization
 
 **Scenario**: Optimize flight paths for a fleet of drones performing surveillance over a region.
 
+**Demo Configuration**: `AEROSPACE_ROUTING`
+- **Problem Type**: MaxCut (40 nodes)
+- **Edge Profile**: Aerospace (50W power budget)
+- **Strategy**: Energy-optimized
+- **Comparative Mode**: Enabled
 
 **Problem Details**:
-- 15 waypoints with varying priorities
-- Wind conditions and no-fly zones
-- Multi-objective: minimize fuel + maximize coverage
-- Quantum advantage demonstrated for 12+ waypoints
+- 40 waypoints representing drone coordination zones
+- 25% edge probability (sparse graph for efficient routing)
+- Power constraints (battery-powered UAVs)
+- Quantum advantage demonstrated for energy-constrained scenarios
 
-**Results**:
-- Classical solver: 8.3s, 87% optimal
-- Quantum QAOA: 12.1s, 94% optimal
-- Hybrid VQE: 5.7s, 91% optimal ✅ **Winner**
+**Expected Results**:
+- Classical solver: Fast but higher power consumption
+- Quantum QAOA: Energy-efficient solution within power budget
+- Winner: Quantum (energy strategy prioritizes lower consumption)
 
 ### 2.  Financial Portfolio Optimization
 
 **Scenario**: Asset allocation for risk-constrained portfolio with correlation matrix.
 
+**Demo Configuration**: `FINANCIAL_PORTFOLIO`
+- **Problem Type**: Portfolio (50 assets)
+- **Edge Profile**: Ground Server (200W power budget)
+- **Strategy**: Quality-optimized
+- **Comparative Mode**: Enabled
+
 **Problem Details**:
-- 20 assets with historical returns
+- 50 assets with historical returns
 - Risk constraints (max variance, sector limits)
 - Correlation-aware optimization
 - Real-time market data integration
 
-**Results**:
-- Expected return: 12.4% annually
-- Portfolio variance: 0.08
-- Sharpe ratio: 1.87
-- Quantum routing: Recommended classical solver (problem structure favors MILP)
+**Expected Results**:
+- Quantum solver finds higher quality portfolios
+- Ground server profile provides ample power for quantum exploration
+- Winner: Quantum (quality strategy prioritizes solution superiority)
 
 ### 3.  ML Graph Partitioning
 
 **Scenario**: Partition neural network graph for distributed training across edge devices.
 
-**Problem Details**:
-- ResNet-50 computation graph (50 layers)
-- Minimize inter-device communication
-- Balance compute load across 4 edge nodes
-- Latency-sensitive constraints
+**Demo Configuration**: `ML_GRAPH_PARTITION`
+- **Problem Type**: MaxCut (60 nodes)
+- **Edge Profile**: Mobile (5-15W power budget)
+- **Strategy**: Balanced
+- **Comparative Mode**: Enabled
 
-**Results**:
-- Communication overhead reduced by 67%
-- Load balance variance: <5%
-- Quantum solver selected for 30+ node subgraphs
+**Problem Details**:
+- 60 nodes with 40% density (interconnected layers)
+- Minimize inter-device communication
+- Balance compute load across mobile edge nodes
+- Challenging for both classical and quantum approaches
+
+**Expected Results**:
+- Balanced strategy weighs time, energy, and quality equally
+- Mobile power constraints are restrictive
+- Winner: Context-dependent (varies based on runtime analysis)
 
 ---
 
