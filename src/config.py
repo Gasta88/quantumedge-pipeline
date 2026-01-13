@@ -254,7 +254,7 @@ class EdgeProfile(BaseSettings):
     Edge computing environment resource constraints.
     
     Defines power budget, thermal limits, memory, CPU, and timeout constraints
-    for different edge deployment scenarios (aerospace, mobile, ground).
+    for different edge deployment scenarios (aerospace, mobile, ground_server).
     
     Attributes:
         power_budget_watts: Maximum power consumption in watts
@@ -323,8 +323,8 @@ class EdgeConfig(BaseSettings):
     """
     
     # Default edge profile to use if not specified
-    default_profile: Literal["aerospace", "mobile", "ground"] = Field(
-        default="ground",
+    default_profile: Literal["aerospace", "mobile", "ground_server"] = Field(
+        default="ground_server",
         description="Default edge profile to use",
         env="EDGE_DEFAULT_PROFILE"
     )
@@ -379,7 +379,7 @@ class EdgeConfig(BaseSettings):
         Profiles:
             aerospace: Satellite/aircraft - strict power (50W), moderate compute, 10s timeout
             mobile: Smartphone/tablet - battery limited (15W), low compute, 5s timeout
-            ground: Data center/server - relaxed (200W), high compute, 60s timeout
+            ground_server: Data center/server - relaxed (200W), high compute, 60s timeout
         
         Returns:
             Dictionary mapping profile names to EdgeProfile configurations
@@ -401,7 +401,7 @@ class EdgeConfig(BaseSettings):
                 max_execution_time_sec=self.max_execution_time_sec or 5,
                 network_latency_ms=100,  # Cellular latency
             ),
-            "ground": EdgeProfile(
+            "ground_server": EdgeProfile(
                 power_budget_watts=self.power_budget_watts or 200.0,
                 thermal_limit_celsius=self.thermal_limit_celsius or 85.0,
                 memory_mb=self.memory_mb or 8192,
@@ -416,7 +416,7 @@ class EdgeConfig(BaseSettings):
         Get a specific edge profile by name.
         
         Args:
-            profile_name: Profile name ('aerospace', 'mobile', 'ground')
+            profile_name: Profile name ('aerospace', 'mobile', 'ground_server')
         
         Returns:
             EdgeProfile configuration

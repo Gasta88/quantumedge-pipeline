@@ -197,8 +197,8 @@ def page_submit_problem():
             
             edge_profile = st.selectbox(
                 "Edge Profile",
-                options=["aerospace", "mobile", "ground"],
-                index=["aerospace", "mobile", "ground"].index(default_edge_profile) if default_edge_profile in ["aerospace", "mobile", "ground"] else 0,
+                options=["aerospace", "mobile", "ground_server"],
+                index=["aerospace", "mobile", "ground_server"].index(default_edge_profile) if default_edge_profile in ["aerospace", "mobile", "ground_server"] else 0,
                 help="Target edge computing environment"
             )
         

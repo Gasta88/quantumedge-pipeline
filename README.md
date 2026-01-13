@@ -64,6 +64,9 @@ make up
 # 4. Verify services are running
 make ps
 
+# 5. In case on unhealthy services, restart them
+make restart
+
 # Expected output:
 # NAME                  STATUS    PORTS
 # quantumedge-api       running   0.0.0.0:8000->8000/tcp

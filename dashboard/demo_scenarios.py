@@ -87,7 +87,7 @@ DEMO_SCENARIOS: Dict[str, Dict[str, Any]] = {
         "problem_params": {
             "seed": 123
         },
-        "edge_profile": "ground",
+        "edge_profile": "ground_server",
         "strategy": "quality",
         "comparative_mode": True,
         "context": """
@@ -318,7 +318,7 @@ def get_scenario_metadata(scenario_name: str) -> Dict[str, Any]:
     -------
     >>> metadata = get_scenario_metadata('FINANCIAL_PORTFOLIO')
     >>> print(metadata['edge_profile'])
-    'ground'
+    'ground_server'
     """
     if scenario_name not in DEMO_SCENARIOS:
         raise KeyError(f"Scenario '{scenario_name}' not found.")
