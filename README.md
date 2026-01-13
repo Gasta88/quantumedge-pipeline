@@ -83,7 +83,7 @@ Once services are running:
 | **Interactive Dashboard** | http://localhost:8501 | Streamlit-based UI for problem submission and visualization |
 | **API Documentation** | http://localhost:8000/docs | OpenAPI/Swagger interactive API docs |
 | **API Health Check** | http://localhost:8000/health | System status and health monitoring |
-| **Metrics Endpoint** | http://localhost:8000/metrics | Prometheus-compatible metrics |
+| **Grafana Dashboard** | http://localhost:3000 | Metrics visualization and monitoring (admin/admin) |
 
 ---
 
@@ -191,8 +191,8 @@ Once services are running:
 #### 4. **Monitoring System** (`src/monitoring/`)
 - Tracks execution time, memory usage, energy consumption
 - Compares solution quality across solvers
-- Stores historical performance data
-- Exports Prometheus-compatible metrics
+- Stores historical performance data in TimescaleDB
+- Visualizes metrics through Grafana dashboards
 
 #### 5. **API Layer** (`src/api/`)
 - RESTful FastAPI endpoints
@@ -485,7 +485,6 @@ quantumedge-pipeline/
 │   └── rotonium-integration.md   # Rotonium integration guide
 │
 ├── monitoring/                   # Monitoring infrastructure
-│   ├── prometheus.yml            # Prometheus configuration
 │   └── grafana/                  # Grafana configurations
 │       ├── dashboards/           # Dashboard definitions
 │       │   └── dashboard.yml
