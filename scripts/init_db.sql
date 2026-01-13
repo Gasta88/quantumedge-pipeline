@@ -94,7 +94,7 @@ CREATE TABLE IF NOT EXISTS job_executions (
     quantum_advantage_ratio FLOAT CHECK (quantum_advantage_ratio >= 0),
     
     -- Edge computing profile where job was executed
-    edge_profile VARCHAR(50) NOT NULL CHECK (edge_profile IN ('aerospace', 'mobile', 'ground')),
+    edge_profile VARCHAR(50) NOT NULL CHECK (edge_profile IN ('aerospace', 'mobile', 'ground_server')),
     
     -- Percentage of available power budget used (0-100)
     power_budget_used FLOAT NOT NULL CHECK (power_budget_used >= 0 AND power_budget_used <= 100),
@@ -126,7 +126,7 @@ COMMENT ON TABLE job_executions IS 'Tracks each quantum-classical job execution 
 COMMENT ON COLUMN job_executions.routing_decision IS 'Solver selected: classical (traditional), quantum (QAOA/VQE), hybrid (combined approach)';
 COMMENT ON COLUMN job_executions.routing_reason IS 'Human-readable explanation: problem size, quantum advantage estimate, resource constraints';
 COMMENT ON COLUMN job_executions.quantum_advantage_ratio IS 'Speedup ratio: quantum_time / classical_time. Values > 1.0 show quantum advantage';
-COMMENT ON COLUMN job_executions.edge_profile IS 'Computing environment: aerospace (strict power), mobile (battery), ground (relaxed constraints)';
+COMMENT ON COLUMN job_executions.edge_profile IS 'Computing environment: aerospace (strict power), mobile (battery), ground_server (relaxed constraints)';
 COMMENT ON COLUMN job_executions.solver_metadata IS 'Solver details: circuit_depth, num_layers, optimizer_iterations, convergence_history';
 
 -- Convert job_executions to TimescaleDB hypertable

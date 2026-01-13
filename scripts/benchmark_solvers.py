@@ -459,7 +459,7 @@ async def _save_to_database_async(results: List[Dict[str, Any]]) -> None:
                     execution_time_ms=result['execution_time_ms'],
                     energy_consumed_mj=result['energy_mj'],
                     solution_quality=result['solution_quality'],
-                    edge_profile='ground',  # Default profile for benchmarking
+                    edge_profile='ground_server',  # Default profile for benchmarking
                     power_budget_used=50.0,  # Default value
                     solver_metadata=result['metadata']
                 )

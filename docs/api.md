@@ -63,7 +63,7 @@ Get comprehensive system information including configuration and capabilities.
   },
   "configuration": {
     "quantum_backend": "simulator",
-    "edge_profiles": ["aerospace", "mobile", "ground"],
+    "edge_profiles": ["aerospace", "mobile", "ground_server"],
     "routing_strategies": ["balanced", "energy_optimized", "latency_optimized", "quality_optimized"]
   },
   "capabilities": {
@@ -125,8 +125,8 @@ Get available edge deployment profiles with resource constraints.
       "max_execution_time_sec": 5,
       "network_latency_ms": 100
     },
-    "ground": {
-      "profile_name": "ground",
+    "ground_server": {
+      "profile_name": "ground_server",
       "power_budget_watts": 200.0,
       "thermal_limit_celsius": 85.0,
       "memory_mb": 8192,
@@ -135,7 +135,7 @@ Get available edge deployment profiles with resource constraints.
       "network_latency_ms": 10
     }
   },
-  "default_profile": "ground"
+  "default_profile": "ground_server"
 }
 ```
 
@@ -252,7 +252,7 @@ Submit a Portfolio Optimization problem for solving.
 {
   "num_assets": 15,
   "risk_aversion": 0.5,
-  "edge_profile": "ground",
+  "edge_profile": "ground_server",
   "strategy": "quality_optimized",
   "seed": 42
 }

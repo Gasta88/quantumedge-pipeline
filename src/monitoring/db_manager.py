@@ -390,7 +390,7 @@ class DatabaseManager:
             execution_time_ms: Total execution time in milliseconds
             energy_consumed_mj: Energy used in millijoules
             solution_quality: Solution quality score (0.0 to 1.0)
-            edge_profile: Computing environment ('aerospace', 'mobile', 'ground')
+            edge_profile: Computing environment ('aerospace', 'mobile', 'ground_server')
             power_budget_used: Percentage of power budget consumed (0-100)
             quantum_advantage_ratio: Speedup vs classical baseline (optional)
             solver_metadata: Solver-specific details (optional):
@@ -422,7 +422,7 @@ class DatabaseManager:
         if routing_decision not in valid_decisions:
             raise ValueError(f"Invalid routing_decision. Must be one of {valid_decisions}")
         
-        valid_profiles = ["aerospace", "mobile", "ground"]
+        valid_profiles = ["aerospace", "mobile", "ground_server"]
         if edge_profile not in valid_profiles:
             raise ValueError(f"Invalid edge_profile. Must be one of {valid_profiles}")
         
@@ -490,7 +490,7 @@ class DatabaseManager:
         Args:
             limit: Maximum number of jobs to return (default: 100)
             routing_decision: Filter by decision type ('classical', 'quantum', 'hybrid')
-            edge_profile: Filter by edge environment ('aerospace', 'mobile', 'ground')
+            edge_profile: Filter by edge environment ('aerospace', 'mobile', 'ground_server')
         
         Returns:
             List of job execution dictionaries, sorted by timestamp (newest first)
@@ -830,7 +830,7 @@ class DatabaseManager:
         for jobs executed on a particular edge profile.
         
         Args:
-            edge_profile: Edge environment ('aerospace', 'mobile', 'ground')
+            edge_profile: Edge environment ('aerospace', 'mobile', 'ground_server')
             start_time: Filter jobs after this time (optional)
             end_time: Filter jobs before this time (optional)
         
