@@ -17,6 +17,7 @@ TimescaleDB is an open-source time-series database built on PostgreSQL. Perfect 
   - Automatic data partitioning
   - Compression for historical data
   - Full PostgreSQL compatibility
+  - Pre-configured hypertables for job executions and performance metrics
 
 ### 2. grafana
 **Image:** `grafana/grafana:latest`
@@ -28,13 +29,12 @@ Grafana provides powerful visualization dashboards for monitoring the quantum-cl
 - **Data Volume:** `./data/grafana`
 - **Features:**
   - Pre-configured TimescaleDB datasource
-  - Prometheus integration
   - Custom dashboard provisioning
   - Real-time metrics visualization
+  - Time-series queries and aggregations
 
 **Datasources:**
-- TimescaleDB (default) - Main database queries
-- Prometheus - Application metrics
+- TimescaleDB (default) - Main database for all metrics and job history
 
 ### 3. app (FastAPI Backend)
 **Built from:** `Dockerfile`
@@ -47,7 +47,6 @@ The main FastAPI application serving the quantum-classical routing API.
 - **Features:**
   - Automatic API documentation at `/docs`
   - Health endpoint at `/health`
-  - Prometheus metrics at `/metrics`
   - Hot reload in development mode
 
 **Dependencies:**
@@ -69,19 +68,6 @@ Interactive Streamlit dashboard for visualization and control.
 **Dependencies:**
 - app (FastAPI backend)
 
-### 5. prometheus
-**Image:** `prom/prometheus:latest`
-
-Prometheus collects and stores metrics from all services.
-
-- **Port:** 9090
-- **Config:** `./monitoring/prometheus.yml`
-- **Data Volume:** `prometheus_data`
-- **Scrape Targets:**
-  - Self-monitoring
-  - FastAPI app metrics
-  - Grafana metrics
-
 ## Network Configuration
 
 **Network:** `quantumedge-network`
@@ -92,9 +78,8 @@ Prometheus collects and stores metrics from all services.
 ## Volume Management
 
 ### Persistent Volumes
-- `./data/postgres` - TimescaleDB data (host mount)
-- `./data/grafana` - Grafana dashboards and config (host mount)
-- `prometheus_data` - Prometheus time-series data (named volume)
+- `postgres_data` - TimescaleDB data (named volume)
+- `grafana_data` - Grafana dashboards and config (named volume)
 
 ### Development Volumes
 - `./src` - Source code hot reload
@@ -111,7 +96,6 @@ All services have configured health checks with the following parameters:
 | grafana | /api/health | 30s | 10s | 3 | 40s |
 | app | /health | 30s | 10s | 3 | 40s |
 | dashboard | /_stcore/health | 30s | 10s | 3 | 40s |
-| prometheus | /-/healthy | 30s | 10s | 3 | - |
 
 ## Quick Start Commands
 
@@ -166,7 +150,6 @@ Once all services are running:
 - **FastAPI Docs:** http://localhost:8000/docs
 - **Streamlit Dashboard:** http://localhost:8501
 - **Grafana:** http://localhost:3000 (admin/admin)
-- **Prometheus:** http://localhost:9090
 
 ## Environment Variables
 
@@ -198,17 +181,13 @@ nano .env
 
 ### Monitoring
 1. Set up Grafana alerts
-2. Configure Prometheus alerting rules
-3. Enable log aggregation (ELK/Loki)
-4. Monitor resource usage with cAdvisor
+2. Enable log aggregation (ELK/Loki)
+3. Monitor resource usage with cAdvisor
 
 ### Backup
 ```bash
 # Backup TimescaleDB
 docker-compose exec postgres-timescale pg_dump -U qe_user quantumedge > backup.sql
-
-# Backup Grafana dashboards
-tar -czf grafana-backup.tar.gz ./data/grafana
 
 # Restore database
 docker-compose exec -T postgres-timescale psql -U qe_user quantumedge < backup.sql
@@ -243,11 +222,8 @@ DASHBOARD_PORT=8502
 
 ### Permission issues
 ```bash
-# Fix Grafana permissions
-sudo chown -R 472:472 ./data/grafana
-
-# Fix PostgreSQL permissions
-sudo chown -R 999:999 ./data/postgres
+# Fix Grafana permissions (if using host volumes)
+sudo chown -R 472:472 ./grafana_data
 ```
 
 ## TimescaleDB Specific Features
