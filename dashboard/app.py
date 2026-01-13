@@ -509,7 +509,7 @@ def page_results_analysis():
                 result.get('classical', {}),
                 result.get('quantum', {})
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
         except Exception as e:
             st.warning(f"Could not generate comparison chart: {str(e)}")
         
@@ -573,7 +573,7 @@ def page_results_analysis():
         
         if solution:
             fig = plot_graph_solution(problem, solution)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
         else:
             st.warning("No solution data available for visualization.")
     except Exception as e:
@@ -660,7 +660,7 @@ def page_historical_performance():
         try:
             # Time series trends
             fig = plot_historical_trends(filtered_history)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
         except Exception as e:
             st.warning(f"Could not generate trends chart: {str(e)}")
         

@@ -927,7 +927,7 @@ class ClassicalSolver(SolverBase):
     def _solve_portfolio_scipy(
         self,
         problem: ProblemBase,
-        method: str = 'sharpe',
+        solve_method: str = 'sharpe',
         target_return: Optional[float] = None,
         **kwargs
     ) -> List[float]:
@@ -988,7 +988,7 @@ class ClassicalSolver(SolverBase):
         
         Args:
             problem: Portfolio optimization problem (PortfolioProblem instance)
-            method: Optimization method ('sharpe' or 'min_variance')
+            solve_method: Optimization method ('sharpe' or 'min_variance')
             target_return: Minimum required return (for min_variance method)
             **kwargs: Additional optimizer parameters
         
@@ -999,7 +999,7 @@ class ClassicalSolver(SolverBase):
             ImportError: If scipy not available
             ValueError: If problem is not PortfolioProblem
         """
-        logger.debug(f"Solving portfolio optimization with scipy (method={method})")
+        logger.debug(f"Solving portfolio optimization with scipy (method={solve_method})")
         
         try:
             from scipy.optimize import minimize
@@ -1028,7 +1028,7 @@ class ClassicalSolver(SolverBase):
             })
             
             # Constraint 2: Minimum return (if specified and using min_variance)
-            if method == 'min_variance' and target_return is not None:
+            if solve_method == 'min_variance' and target_return is not None:
                 constraints.append({
                     'type': 'ineq',
                     'fun': lambda w: np.dot(w, expected_returns) - target_return
@@ -1038,7 +1038,7 @@ class ClassicalSolver(SolverBase):
             bounds = tuple((0, 1) for _ in range(n))
             
             # Define objective functions
-            if method == 'sharpe':
+            if solve_method == 'sharpe':
                 # Maximize Sharpe ratio = minimize negative Sharpe
                 def objective(w):
                     portfolio_return = np.dot(w, expected_returns)
@@ -1051,13 +1051,13 @@ class ClassicalSolver(SolverBase):
                     sharpe_ratio = (portfolio_return - risk_free_rate) / portfolio_volatility
                     return -sharpe_ratio  # Minimize negative Sharpe = maximize Sharpe
                 
-            elif method == 'min_variance':
+            elif solve_method == 'min_variance':
                 # Minimize portfolio variance
                 def objective(w):
                     return np.dot(w, np.dot(covariance_matrix, w))
             
             else:
-                raise ValueError(f"Unknown method: {method}. Use 'sharpe' or 'min_variance'")
+                raise ValueError(f"Unknown method: {solve_method}. Use 'sharpe' or 'min_variance'")
             
             # Optimize
             result = minimize(
