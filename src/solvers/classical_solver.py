@@ -993,7 +993,8 @@ class ClassicalSolver(SolverBase):
             **kwargs: Additional optimizer parameters
         
         Returns:
-            Weight vector [w1, w2, ..., wn] summing to 1.0
+            Binary selection [0, 1, ...] if problem has num_selected (cardinality constraint)
+            Otherwise, weight vector [w1, w2, ..., wn] summing to 1.0
             
         Raises:
             ImportError: If scipy not available
@@ -1100,6 +1101,25 @@ class ClassicalSolver(SolverBase):
                 f"sharpe={sharpe_ratio:.4f}, "
                 f"iterations={self._last_iterations}"
             )
+
+            # Convert to binary selection if problem requires cardinality constraint
+            if hasattr(problem, 'num_selected'):
+                k = problem.num_selected
+                
+                # Select top k assets by weight
+                top_k_indices = np.argsort(optimal_weights)[-k:]
+                
+                # Create binary solution
+                binary_solution = [0] * n
+                for idx in top_k_indices:
+                    binary_solution[idx] = 1
+                
+                logger.debug(
+                    f"Converted continuous weights to binary selection: "
+                    f"selected assets {sorted(top_k_indices.tolist())}"
+                )
+                
+                return binary_solution
             
             return optimal_weights.tolist()
         

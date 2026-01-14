@@ -190,6 +190,13 @@ class PortfolioJobRequest(BaseModel):
         description="Number of assets in portfolio",
         example=20
     )
+    num_selected: int = Field(
+        ..., 
+        ge=1, 
+        le=100, 
+        description="Number of assets to select",
+        example=5
+    )
     risk_aversion: float = Field(
         0.5, 
         ge=0.0, 
@@ -817,6 +824,7 @@ async def submit_portfolio_job(request: PortfolioJobRequest):
       -H "Content-Type: application/json" \\
       -d '{
         "num_assets": 20,
+        "num_selected": 5,
         "risk_aversion": 0.5,
         "edge_profile": "ground_server",
         "strategy": "quality_optimized"
@@ -827,10 +835,11 @@ async def submit_portfolio_job(request: PortfolioJobRequest):
         logger.info(f"Received Portfolio job request: {request.dict()}")
         
         # Generate problem
-        problem = PortfolioProblem(num_assets=request.num_assets)
-        problem.generate(risk_aversion=request.risk_aversion, seed=request.seed)
+        problem = PortfolioProblem(num_assets=request.num_assets, num_selected=request.num_selected, risk_aversion=request.risk_aversion)
+        problem.generate(seed=request.seed)
         
         logger.info(f"Generated Portfolio problem: {request.num_assets} assets, "
+                    f"num_selected={request.num_selected}, "
                    f"risk_aversion={request.risk_aversion}")
         
         # Create orchestrator (database disabled for now - async driver issue)

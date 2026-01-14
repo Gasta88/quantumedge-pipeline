@@ -147,6 +147,7 @@ class PortfolioProblem(ProblemBase):
         num_selected: int,
         risk_free_rate: float = 0.02,
         max_risk: Optional[float] = None,
+        risk_aversion: float = 0.5
     ):
         """
         Initialize portfolio optimization problem.
@@ -158,6 +159,8 @@ class PortfolioProblem(ProblemBase):
                            Used in Sharpe ratio calculation
             max_risk: Maximum allowed portfolio variance (optional)
                      If None, no risk constraint
+            risk_aversion: Risk aversion parameter (0=risk-seeking, 1=risk-averse)
+                           Used in Sharpe ratio calculation
         
         Raises:
             ValueError: If parameters are invalid
@@ -181,6 +184,9 @@ class PortfolioProblem(ProblemBase):
         if risk_free_rate < 0:
             raise ValueError("risk_free_rate must be non-negative")
         
+        if not (0.0 <= risk_aversion <= 1.0):
+            raise ValueError("risk_aversion must be in [0, 1]")
+        
         self._problem_type = "portfolio"
         self._problem_size = num_assets
         self._complexity_class = "NP-hard"  # With cardinality constraints
@@ -189,6 +195,7 @@ class PortfolioProblem(ProblemBase):
         self.num_selected = num_selected
         self.risk_free_rate = risk_free_rate
         self.max_risk = max_risk
+        self.risk_aversion = risk_aversion
         
         self.expected_returns: Optional[np.ndarray] = None
         self.covariance_matrix: Optional[np.ndarray] = None
@@ -569,8 +576,8 @@ class PortfolioProblem(ProblemBase):
         qubo = np.zeros((n, n), dtype=np.float64)
         
         # Weighting coefficients (tunable hyperparameters)
-        lambda_return = 1.0    # Weight for return maximization
-        lambda_risk = 0.5      # Weight for risk minimization
+        lambda_return = 1.0 - self.risk_aversion  # More risk-averse = lower return weight
+        lambda_risk = self.risk_aversion          # More risk-averse = higher risk penalty
         lambda_cardinality = 10.0  # Penalty for cardinality constraint
         
         # 1. Return term: -λ₁·μᵢ on diagonal (negative for maximization)

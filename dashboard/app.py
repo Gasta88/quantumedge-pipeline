@@ -205,8 +205,8 @@ def page_submit_problem():
         with col2:
             strategy = st.selectbox(
                 "Optimization Strategy",
-                options=["energy", "latency", "quality", "balanced"],
-                index=["energy", "latency", "quality", "balanced"].index(default_strategy) if default_strategy in ["energy", "latency", "quality", "balanced"] else 3,
+                options=["energy_optimized", "latency_optimized", "quality_optimized", "balanced"],
+                index=["energy_optimized", "latency_optimized", "quality_optimized", "balanced"].index(default_strategy) if default_strategy in ["energy_optimized", "latency_optimized", "quality_optimized", "balanced"] else 3,
                 help="What to optimize for in routing decision"
             )
             

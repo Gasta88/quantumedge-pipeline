@@ -175,7 +175,7 @@ class JobOrchestrator:
             default_timeout_s: Default execution timeout in seconds
             max_retries: Maximum retry attempts for transient failures
             db_url: Database connection URL (required if enable_db=True)
-            strategy: Routing strategy ('balanced', 'performance', 'efficiency')
+            strategy: Routing strategy ('balanced', 'energy_optimized', 'latency_optimized', 'quality_optimized')
         
         Raises:
             ValueError: If enable_db=True but db_url is not provided
@@ -268,7 +268,7 @@ class JobOrchestrator:
         Args:
             problem: Problem instance to solve (must be generated)
             edge_profile: Deployment environment ('aerospace', 'mobile', 'ground_server')
-            strategy: Routing strategy ('performance', 'efficiency', 'balanced')
+            strategy: Routing strategy ('balanced', 'energy_optimized', 'latency_optimized', 'quality_optimized')
             timeout_s: Execution timeout in seconds (None = use default)
             progress_callback: Optional callback(stage: str, progress: float [0-1])
         

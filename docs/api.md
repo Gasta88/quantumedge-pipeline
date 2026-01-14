@@ -251,6 +251,7 @@ Submit a Portfolio Optimization problem for solving.
 ```json
 {
   "num_assets": 15,
+  "num_selected": 5,
   "risk_aversion": 0.5,
   "edge_profile": "ground_server",
   "strategy": "quality_optimized",
@@ -260,7 +261,11 @@ Submit a Portfolio Optimization problem for solving.
 
 **Parameters:**
 - `num_assets` (int, required): Number of assets (5-100)
+- `num_selected` (int, required): Number of assets to select (1-`num_assets`)
 - `risk_aversion` (float, optional): Risk aversion parameter (0.0-1.0), default: 0.5
+  - 0.0 = risk-seeking (maximize returns, ignore risk)
+  - 0.5 = balanced (default)
+  - 1.0 = risk-averse (minimize risk)
 - `edge_profile` (str, optional): Edge deployment profile
 - `strategy` (str, optional): Routing strategy
 - `seed` (int, optional): Random seed
