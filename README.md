@@ -66,12 +66,6 @@ make ps
 
 # 5. In case on unhealthy services, restart them
 make restart
-
-# Expected output:
-# NAME                  STATUS    PORTS
-# quantumedge-api       running   0.0.0.0:8000->8000/tcp
-# quantumedge-dashboard running   0.0.0.0:8501->8501/tcp
-# quantumedge-postgres  running   0.0.0.0:5432->5432/tcp
 ```
 
 ### Access Dashboards

@@ -58,7 +58,6 @@ Once started, access these URLs:
 |---------|-----|-------------|
 | **FastAPI Docs** | http://localhost:8000/docs | - |
 | **Streamlit Dashboard** | http://localhost:8501 | - |
-| **Prometheus** | http://localhost:9090 | - |
 
 ## Common Commands
 

@@ -39,7 +39,6 @@ up:
 	@echo "Services available at:"
 	@echo "  API Docs:   http://localhost:8000/docs"
 	@echo "  Dashboard:  http://localhost:8501"
-	@echo "  Prometheus: http://localhost:9090"
 
 # Stop all services
 down:
@@ -131,7 +130,6 @@ health:
 	@docker-compose ps -a | grep "Up"
 	@echo ""
 	@curl -s http://localhost:8000/health | jq . || echo "Api not responding"
-	@curl -s http://localhost:9090/-/healthy || echo "Prometheus not responding"
 
 # Install development dependencies
 dev-setup:
