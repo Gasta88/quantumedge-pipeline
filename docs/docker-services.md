@@ -19,24 +19,7 @@ TimescaleDB is an open-source time-series database built on PostgreSQL. Perfect 
   - Full PostgreSQL compatibility
   - Pre-configured hypertables for job executions and performance metrics
 
-### 2. grafana
-**Image:** `grafana/grafana:latest`
-
-Grafana provides powerful visualization dashboards for monitoring the quantum-classical pipeline performance.
-
-- **Port:** 3000
-- **Default Credentials:** admin/admin (change on first login!)
-- **Data Volume:** `./data/grafana`
-- **Features:**
-  - Pre-configured TimescaleDB datasource
-  - Custom dashboard provisioning
-  - Real-time metrics visualization
-  - Time-series queries and aggregations
-
-**Datasources:**
-- TimescaleDB (default) - Main database for all metrics and job history
-
-### 3. app (FastAPI Backend)
+### 2. app (FastAPI Backend)
 **Built from:** `Dockerfile`
 
 The main FastAPI application serving the quantum-classical routing API.
@@ -52,7 +35,7 @@ The main FastAPI application serving the quantum-classical routing API.
 **Dependencies:**
 - postgres-timescale (with health check)
 
-### 4. dashboard (Streamlit)
+### 3. dashboard (Streamlit)
 **Built from:** `Dockerfile`
 
 Interactive Streamlit dashboard for visualization and control.
@@ -79,7 +62,6 @@ Interactive Streamlit dashboard for visualization and control.
 
 ### Persistent Volumes
 - `postgres_data` - TimescaleDB data (named volume)
-- `grafana_data` - Grafana dashboards and config (named volume)
 
 ### Development Volumes
 - `./src` - Source code hot reload
@@ -93,7 +75,6 @@ All services have configured health checks with the following parameters:
 | Service | Endpoint | Interval | Timeout | Retries | Start Period |
 |---------|----------|----------|---------|---------|--------------|
 | postgres-timescale | pg_isready | 10s | 5s | 5 | 30s |
-| grafana | /api/health | 30s | 10s | 3 | 40s |
 | app | /health | 30s | 10s | 3 | 40s |
 | dashboard | /_stcore/health | 30s | 10s | 3 | 40s |
 
@@ -111,7 +92,6 @@ docker-compose logs -f
 
 # Specific service
 docker-compose logs -f app
-docker-compose logs -f grafana
 ```
 
 ### Check service status
@@ -149,7 +129,6 @@ Once all services are running:
 
 - **FastAPI Docs:** http://localhost:8000/docs
 - **Streamlit Dashboard:** http://localhost:8501
-- **Grafana:** http://localhost:3000 (admin/admin)
 
 ## Environment Variables
 
@@ -162,7 +141,6 @@ nano .env
 
 **Important variables:**
 - `POSTGRES_PASSWORD` - Change for production!
-- `GRAFANA_PASSWORD` - Change on first login!
 - `SECRET_KEY` - Generate secure key for production
 - `QUANTUM_BACKEND` - Choose: simulator, ibm_quantum, aws_braket
 
@@ -180,7 +158,6 @@ nano .env
 3. Use connection pooling (PgBouncer) for database
 
 ### Monitoring
-1. Set up Grafana alerts
 2. Enable log aggregation (ELK/Loki)
 3. Monitor resource usage with cAdvisor
 
@@ -218,12 +195,6 @@ If ports are already in use, modify in `.env`:
 ```bash
 API_PORT=8001
 DASHBOARD_PORT=8502
-```
-
-### Permission issues
-```bash
-# Fix Grafana permissions (if using host volumes)
-sudo chown -R 472:472 ./grafana_data
 ```
 
 ## TimescaleDB Specific Features
