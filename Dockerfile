@@ -1,11 +1,12 @@
 # Multi-stage Dockerfile for Python 3.11 application
 FROM python:3.11-slim as base
 
-# Install system dependencies
+# Install system dependencies in one layer
 RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
     postgresql-client \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
