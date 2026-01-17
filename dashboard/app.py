@@ -724,7 +724,7 @@ def page_system_status():
     
     with col2:
         st.success("✅ Quantum Simulator: **AVAILABLE**")
-        st.info("Qiskit Aer Statevector")
+        st.info("PennyLane Quantum Simulator")
     
     st.markdown("---")
     

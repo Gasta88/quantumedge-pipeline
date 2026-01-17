@@ -631,29 +631,7 @@ The simulator:
 
 ### Simulators We Use
 
-**1. Qiskit Aer (IBM)**
-```python
-from qiskit import QuantumCircuit, transpile
-from qiskit_aer import AerSimulator
-
-# Create circuit
-qc = QuantumCircuit(3)
-qc.h(0)
-qc.cx(0, 1)
-qc.measure_all()
-
-# Simulate
-simulator = AerSimulator()
-result = simulator.run(transpile(qc, simulator), shots=1000).result()
-```
-
-**Features:**
-- State vector simulation: Exact quantum state
-- QASM simulation: Fast, realistic noise
-- GPU acceleration: For larger circuits
-- Noise models: Simulate real hardware errors
-
-**2. PennyLane (Xanadu)**
+**PennyLane (Xanadu)**
 ```python
 import pennylane as qml
 
@@ -823,7 +801,7 @@ Need to test on target hardware
 │         Development Phase               │
 │                                         │
 │  1. Design algorithm                    │
-│  2. Test on simulator (Qiskit/Penny)   │
+│  2. Test on simulator (PennyLane)      │
 │  3. Optimize parameters                 │
 │  4. Validate small instances            │
 └─────────────────────────────────────────┘
@@ -887,11 +865,11 @@ Now that you understand the basics:
 
 2. **Try examples**: Check `examples/` directory for quantum circuit demonstrations
 
-3. **Read papers**: 
+3. **Read papers**:
    - Original QAOA paper: [arXiv:1411.4028](https://arxiv.org/abs/1411.4028)
    - Photonic quantum computing: [Nature Photonics reviews](https://www.nature.com/nphoton/)
 
-4. **Experiment**: Use Qiskit or PennyLane to build your own circuits
+4. **Experiment**: Use PennyLane to build your own circuits
 
 5. **Contribute**: Help improve our quantum solver implementations!
 
@@ -901,16 +879,17 @@ Now that you understand the basics:
 
 ### Learning Platforms
 - [IBM Quantum Learning](https://learning.quantum.ibm.com/)
-- [Qiskit Textbook](https://qiskit.org/textbook/)
 - [PennyLane Tutorials](https://pennylane.ai/qml/)
+- [Quantum Computing for the Very Curious](https://quantum.country/)
 
 ### Documentation
-- [Qiskit Documentation](https://qiskit.org/documentation/)
 - [PennyLane Documentation](https://docs.pennylane.ai/)
+- [NumPy Documentation](https://numpy.org/doc/)
+- [SciPy Documentation](https://docs.scipy.org/)
 
 ### Community
 - [Quantum Computing Stack Exchange](https://quantumcomputing.stackexchange.com/)
-- [Qiskit Slack](https://qisk.it/join-slack)
+- [PennyLane Discussion Forum](https://discuss.pennylane.ai/)
 
 ---
 

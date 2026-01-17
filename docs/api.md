@@ -473,26 +473,24 @@ print(f"Cost: {result['cost']}")
 print(f"Time: {result['time_ms']} ms")
 ```
 
-### Python with `httpx` (async)
+### Python with `requests`
 
 ```python
-import httpx
-import asyncio
+import requests
 
-async def submit_problem():
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            "http://localhost:8000/api/v1/jobs/maxcut",
-            json={
-                "num_nodes": 30,
-                "edge_probability": 0.3,
-                "edge_profile": "aerospace",
-                "strategy": "balanced"
-            }
-        )
-        return response.json()
+def submit_problem():
+    response = requests.post(
+        "http://localhost:8000/api/v1/jobs/maxcut",
+        json={
+            "num_nodes": 30,
+            "edge_probability": 0.3,
+            "edge_profile": "aerospace",
+            "strategy": "balanced"
+        }
+    )
+    return response.json()
 
-result = asyncio.run(submit_problem())
+result = submit_problem()
 print(result)
 ```
 
