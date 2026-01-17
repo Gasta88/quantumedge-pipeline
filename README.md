@@ -505,18 +505,51 @@ quantumedge-pipeline/
 ### Running Tests
 
 ```bash
-# Run all tests with coverage
+# Run all unit tests with coverage
 make test
 
 # Run specific test suite
-docker-compose exec api poetry run pytest tests/unit/test_router.py -v
+docker-compose exec api poetry run pytest tests/test_router.py -v
 
-# Run integration tests
-docker-compose exec api poetry run pytest tests/integration/ -v
-
-# Run performance benchmarks
-docker-compose exec api poetry run pytest tests/performance/ --benchmark-only
+# Run tests with coverage report
+make test-cov
 ```
+
+### Running Benchmarks
+
+The project includes a standalone benchmark script for comprehensive performance analysis of classical vs quantum solvers. This is **not** part of the pytest suite but a separate utility for detailed solver comparison.
+
+```bash
+# Run benchmark with default settings
+docker-compose exec api python scripts/benchmark_solvers.py
+
+# Run benchmark with custom problem sizes
+docker-compose exec api python scripts/benchmark_solvers.py --sizes 10 20 30 40 50
+
+# Run benchmark and generate performance plots
+docker-compose exec api python scripts/benchmark_solvers.py --plot
+
+# Run benchmark with more repetitions for statistical significance
+docker-compose exec api python scripts/benchmark_solvers.py --repetitions 5
+
+# Run benchmark without database storage
+docker-compose exec api python scripts/benchmark_solvers.py --no-db
+
+# Analyze existing benchmark results
+docker-compose exec api python scripts/benchmark_solvers.py --csv benchmark_results/benchmark_20240115_143022.csv --plot
+```
+
+**Benchmark Features:**
+- Compares Classical (Greedy, Simulated Annealing) vs Quantum (QAOA) solvers
+- Measures execution time, energy consumption, and solution quality
+- Identifies problem sizes where quantum advantage emerges
+- Generates CSV reports, visualizations, and markdown summaries
+- Results stored in `benchmark_results/` directory
+
+**Output Files:**
+- `benchmark_YYYYMMDD_HHMMSS.csv` - Raw benchmark data
+- `benchmark_report_YYYYMMDD_HHMMSS.md` - Analysis report with recommendations
+- `performance_plots_YYYYMMDD_HHMMSS.png` - Visualization charts (if --plot used)
 
 ---
 ##  Technical Details
