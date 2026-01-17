@@ -1,4 +1,4 @@
-.PHONY: help build up down restart logs ps clean init-db shell-db shell-api test
+.PHONY: help build up down restart logs ps clean init-db shell-db shell-api test test-cov benchmark benchmark-plot
 
 # Default target
 help:
@@ -18,6 +18,9 @@ help:
 	@echo "  make shell-db   - Open PostgreSQL shell"
 	@echo "  make shell-api  - Open api container shell"
 	@echo "  make test       - Run tests"
+	@echo "  make test-cov   - Run tests with coverage"
+	@echo "  make benchmark  - Run solver benchmark script"
+	@echo "  make benchmark-plot - Run benchmark with visualizations"
 	@echo "  make backup-db  - Backup database"
 	@echo "  make restore-db - Restore database from backup"
 
@@ -96,6 +99,14 @@ test:
 # Run tests with coverage
 test-cov:
 	docker-compose exec api pytest tests/ -v --cov=src --cov-report=html
+
+# Run benchmark script
+benchmark:
+	docker-compose exec api python scripts/benchmark_solvers.py
+
+# Run benchmark with plots
+benchmark-plot:
+	docker-compose exec api python scripts/benchmark_solvers.py --plot
 
 # Backup database
 backup-db:
