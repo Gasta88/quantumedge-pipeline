@@ -39,7 +39,6 @@ up:
 	@echo "Services available at:"
 	@echo "  API Docs:   http://localhost:8000/docs"
 	@echo "  Dashboard:  http://localhost:8501"
-	@echo "  Grafana:    http://localhost:3000 (admin/admin)"
 	@echo "  Prometheus: http://localhost:9090"
 
 # Stop all services
@@ -64,9 +63,6 @@ logs-dashboard:
 logs-db:
 	docker-compose logs -f postgres-timescale
 
-logs-grafana:
-	docker-compose logs -f grafana
-
 # Show service status
 ps:
 	docker-compose ps -a
@@ -75,7 +71,7 @@ ps:
 clean:
 	docker-compose down -v
 	@echo "Cleaning local data directories..."
-	@rm -rf ./data/postgres/* ./data/grafana/*
+	@rm -rf ./data/postgres/*
 	@echo "Clean complete!"
 
 # Initialize database
@@ -125,10 +121,6 @@ restore-db:
 	docker-compose exec -T postgres-timescale psql -U qe_user quantumedge < $(FILE)
 	@echo "Database restored!"
 
-# View Grafana datasources
-grafana-datasources:
-	@cat monitoring/grafana/datasources/datasource.yml
-
 # Scale services
 scale-api:
 	docker-compose up -d --scale api=3
@@ -145,8 +137,7 @@ health:
 dev-setup:
 	@cp .env.example .env
 	@echo "Environment file created. Please update .env with your settings."
-	@mkdir -p ./data/postgres ./data/grafana ./logs ./backups
-	@chmod 777 ./data/grafana
+	@mkdir -p ./data/postgres ./logs ./backups
 	@echo "Development environment ready!"
 
 # Production build

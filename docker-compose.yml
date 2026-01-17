@@ -24,42 +24,6 @@ services:
       - quantumedge-network
     shm_size: 256mb
 
-  grafana:
-    image: grafana/grafana:latest
-    container_name: quantumedge-grafana
-    environment:
-      # Grafana configuration
-      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
-      GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-simple-json-datasource
-      GF_SERVER_ROOT_URL: http://localhost:3000
-      # Database connection for Grafana's own storage (optional)
-      GF_DATABASE_TYPE: postgres
-      GF_DATABASE_HOST: postgres-timescale:5432
-      GF_DATABASE_NAME: ${POSTGRES_DB:-quantumedge}
-      GF_DATABASE_USER: ${POSTGRES_USER:-qe_user}
-      GF_DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-qe_pass}
-      GF_DATABASE_SSL_MODE: disable
-    ports:
-      - "3000:3000"
-    volumes:
-      - grafana_data:/var/lib/grafana
-      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
-      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
-    depends_on:
-      postgres-timescale:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    restart: unless-stopped
-    networks:
-      - quantumedge-network
-    user: "472"  # grafana user
-
   api:
     build:
       context: .
@@ -150,8 +114,6 @@ services:
 
 volumes:
   postgres_data:
-    driver: local
-  grafana_data:
     driver: local
 
 networks:

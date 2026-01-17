@@ -83,7 +83,6 @@ Once services are running:
 | **Interactive Dashboard** | http://localhost:8501 | Streamlit-based UI for problem submission and visualization |
 | **API Documentation** | http://localhost:8000/docs | OpenAPI/Swagger interactive API docs |
 | **API Health Check** | http://localhost:8000/health | System status and health monitoring |
-| **Grafana Dashboard** | http://localhost:3000 | Metrics visualization and monitoring (admin/admin) |
 
 ---
 
@@ -192,7 +191,7 @@ Once services are running:
 - Tracks execution time, memory usage, energy consumption
 - Compares solution quality across solvers
 - Stores historical performance data in TimescaleDB
-- Visualizes metrics through Grafana dashboards
+- Provides performance metrics and analytics
 
 #### 5. **API Layer** (`src/api/`)
 - RESTful FastAPI endpoints
@@ -460,12 +459,10 @@ quantumedge-pipeline/
 ├── dashboard/                    # Streamlit web dashboard
 │   ├── app.py                    # Main dashboard application
 │   ├── demo_scenarios.py         # Demo scenario configurations
-│   ├── utils.py                  # Visualization & utility functions
-│   └── grafana_dashboards.json   # Grafana dashboard definitions
+│   └── utils.py                  # Visualization & utility functions
 │
 ├── scripts/                      # Utility & setup scripts
 │   ├── benchmark_solvers.py      # Solver performance benchmarking
-│   ├── setup_grafana.sh          # Grafana configuration script
 │   └── init_db.sql               # Database initialization SQL
 │
 ├── tests/                        # Test suite
@@ -483,13 +480,6 @@ quantumedge-pipeline/
 │   ├── quantum-basics.md         # Quantum computing primer
 │   ├── quickstart.md             # Quick start guide
 │   └── rotonium-integration.md   # Rotonium integration guide
-│
-├── monitoring/                   # Monitoring infrastructure
-│   └── grafana/                  # Grafana configurations
-│       ├── dashboards/           # Dashboard definitions
-│       │   └── dashboard.yml
-│       └── datasources/          # Data source configurations
-│           └── datasource.yml
 │
 ├── Dockerfile                    # Docker image definition
 ├── docker-compose.yml            # Multi-service orchestration
@@ -719,6 +709,16 @@ For detailed schema and indexing strategy, see `database/init.sql`.
 This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
 
 ### Third-Party Licenses
+- **PennyLane**: Apache License 2.0
+- **FastAPI**: MIT License
+- **Streamlit**: Apache License 2.0
+- **OR-Tools**: Apache License 2.0
+
+
+---
+
+**Important Note**: This is a research and development platform designed for evaluation, benchmarking, and integration planning. 
+y Licenses
 - **PennyLane**: Apache License 2.0
 - **FastAPI**: MIT License
 - **Streamlit**: Apache License 2.0

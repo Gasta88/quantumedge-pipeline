@@ -19,7 +19,6 @@ nano .env
 
 **Important: Update these values in .env:**
 - `POSTGRES_PASSWORD` - Change from default!
-- `GRAFANA_PASSWORD` - Change from default!
 - `SECRET_KEY` - Generate a secure random key
 
 ### 2. Create Required Directories
@@ -29,7 +28,7 @@ make dev-setup
 
 This creates:
 - `./data/postgres` - Database storage
-- `./data/grafana` - Grafana dashboards
+- `./logs` - Application logs
 - `./logs` - Application logs
 - `./backups` - Database backups
 
@@ -59,7 +58,6 @@ Once started, access these URLs:
 |---------|-----|-------------|
 | **FastAPI Docs** | http://localhost:8000/docs | - |
 | **Streamlit Dashboard** | http://localhost:8501 | - |
-| **Grafana** | http://localhost:3000 | admin/admin |
 | **Prometheus** | http://localhost:9090 | - |
 
 ## Common Commands
@@ -116,11 +114,6 @@ API_PORT=8001
 DASHBOARD_PORT=8502
 ```
 
-### Permission errors (Grafana)
-```bash
-sudo chown -R 472:472 ./data/grafana
-```
-
 ### Database connection issues
 ```bash
 # Check database logs
@@ -132,21 +125,17 @@ docker-compose exec api python -c "from src.config import config; print(config.d
 
 ## Next Steps
 
-1. **Configure Grafana Datasources**
-   - Login to Grafana at http://localhost:3000
-   - Verify TimescaleDB datasource connection
-   - Import sample dashboards
 
 2. **Initialize Database Schema**
    ```bash
    make init-db
    ```
 
-3. **Test the API**
+2. **Test the API**
    - Visit http://localhost:8000/docs
    - Try the example endpoints
 
-4. **Explore the Dashboard**
+3. **Explore the Dashboard**
    - Visit http://localhost:8501
    - Submit test problems
    - View routing decisions
