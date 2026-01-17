@@ -291,7 +291,7 @@ solver = create_hardware_interface(
     api_key='your_ibm_token',
     backend='ibm_nairobi'
 )
-# Note: Requires Qiskit IBM Runtime and IBM Quantum account
+# Note: Requires qiskit-ibm-runtime package and IBM Quantum account
 result = solver.submit_job(problem)
 
 # 🚧 Alternative: AWS Braket (Abstract Interface Ready)
@@ -307,7 +307,7 @@ result = solver.submit_job(problem)
 **Integration Status**:
 - ✅ Abstract interfaces defined in `src/solvers/quantum_hardware_interface.py`
 - ✅ Standardized job submission and result retrieval methods
-- 🚧 Requires actual SDK integration (Qiskit IBM Runtime, AWS Braket SDK, Rotonium SDK)
+- 🚧 Requires actual SDK integration (qiskit-ibm-runtime, AWS Braket SDK, Rotonium SDK)
 - 🚧 Requires hardware access credentials and accounts
 
 #### 4. **Value Proposition for Customers**
@@ -317,7 +317,7 @@ result = solver.submit_job(problem)
 | **Reduced Integration Time** | Pre-built workflows and APIs ready for production |
 | **Early Viability Proof** | Demonstrate quantum advantage before hardware deployment |
 | **Developer-Friendly Tools** | Familiar REST APIs, Python SDKs, Docker deployment |
-| **Ecosystem Readiness** | Compatible with existing quantum frameworks (Qiskit, PennyLane) |
+| **Ecosystem Readiness** | Compatible with existing quantum frameworks (PennyLane, qiskit-ibm-runtime) |
 | **Competitive Benchmarking** | Side-by-side comparison with IBM, Rigetti, D-Wave |
 
 ### Competitive Advantages: Photonic vs. Cryogenic
@@ -692,9 +692,9 @@ For detailed schema and indexing strategy, see `database/init.sql`.
 ##  Resources
 
 ### Quantum Computing Basics
-- [Qiskit Textbook](https://qiskit.org/textbook/) - Free introductory quantum computing course
 - [PennyLane Tutorials](https://pennylane.ai/qml/) - Quantum machine learning tutorials
 - [Quantum Country](https://quantum.country/) - Interactive quantum computing primer
+- [Quantum Computing for the Very Curious](https://quantum.country/) - Interactive introduction to quantum computing
 
 ### Academic Papers
 - **QAOA**: [Farhi et al. (2014)](https://arxiv.org/abs/1411.4028) - "A Quantum Approximate Optimization Algorithm"
@@ -719,10 +719,10 @@ For detailed schema and indexing strategy, see `database/init.sql`.
 This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
 
 ### Third-Party Licenses
-- **Qiskit**: Apache License 2.0
 - **PennyLane**: Apache License 2.0
 - **FastAPI**: MIT License
 - **Streamlit**: Apache License 2.0
+- **OR-Tools**: Apache License 2.0
 
 
 ---

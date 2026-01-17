@@ -92,7 +92,10 @@ services:
     command: >
       sh -c "
         echo 'Waiting for database to be ready...' &&
-        python -c 'import time; time.sleep(5)' &&
+        until pg_isready -h postgres-timescale -U $${POSTGRES_USER:-qe_user} -d $${POSTGRES_DB:-quantumedge} -t 5; do
+          echo 'Waiting for PostgreSQL...'
+          sleep 2
+        done &&
         echo 'Starting FastAPI application...' &&
         uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload --log-level info
       "
@@ -100,8 +103,8 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
-      retries: 3
-      start_period: 40s
+      retries: 5
+      start_period: 90s
     restart: unless-stopped
     networks:
       - quantumedge-network
@@ -139,8 +142,8 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
       interval: 30s
       timeout: 10s
-      retries: 3
-      start_period: 40s
+      retries: 5
+      start_period: 90s
     restart: unless-stopped
     networks:
       - quantumedge-network
