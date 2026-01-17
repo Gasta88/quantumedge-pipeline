@@ -280,6 +280,8 @@ class ComparativeJobRequest(BaseModel):
     problem_size: int = Field(..., ge=5, le=100, description="Problem size")
     edge_profile: str = Field("aerospace", description="Edge deployment profile")
     seed: Optional[int] = Field(None, description="Random seed")
+    num_selected: Optional[int] = Field(None,ge=1,le=100, description="Number of assets to select")
+    risk_aversion: Optional[float] = Field(0.5, ge=0.0, le=1.0, description="Risk aversion parameter (0=risk-seeking, 1=risk-averse)")
 
     @validator('problem_type')
     def validate_problem_type(cls, v):
@@ -293,6 +295,16 @@ class ComparativeJobRequest(BaseModel):
         valid_profiles = ['aerospace', 'mobile', 'ground_server']
         if v not in valid_profiles:
             raise ValueError(f"edge_profile must be one of {valid_profiles}")
+        return v
+    
+    @validator('num_selected')
+    def validate_num_selected(cls, v, values):
+        """Validate num_selected is provided for portfolio problems."""
+        if 'problem_type' in values and values['problem_type'] == 'portfolio':
+            if v is None:
+                raise ValueError("num_selected is required when problem_type='portfolio'")
+            if 'problem_size' in values and v > values['problem_size']:
+                raise ValueError("num_selected cannot exceed problem_size (num_assets)")
         return v
 
 
@@ -318,6 +330,8 @@ class RoutingAnalysisRequest(BaseModel):
     problem_size: int = Field(..., ge=5, le=100, description="Problem size")
     edge_profile: str = Field("aerospace", description="Deployment profile")
     strategy: str = Field("balanced", description="Routing strategy")
+    num_selected: Optional[int] = Field(None,ge=1,le=100, description="Number of assets to select")
+    risk_aversion: Optional[float] = Field(0.5, ge=0.0, le=1.0, description="Risk aversion parameter (0=risk-seeking, 1=risk-averse)")
 
     @validator('problem_type')
     def validate_problem_type(cls, v):
@@ -340,6 +354,15 @@ class RoutingAnalysisRequest(BaseModel):
             raise ValueError(f"strategy must be one of {valid_strategies}")
         return v
 
+    @validator('num_selected')
+    def validate_num_selected(cls, v, values):
+        """Validate num_selected is provided for portfolio problems."""
+        if 'problem_type' in values and values['problem_type'] == 'portfolio':
+            if v is None:
+                raise ValueError("num_selected is required when problem_type='portfolio'")
+            if 'problem_size' in values and v > values['problem_size']:
+                raise ValueError("num_selected cannot exceed problem_size (num_assets)")
+        return v
 
 class RoutingAnalysisResponse(BaseModel):
     """Response model for routing analysis."""
@@ -935,8 +958,12 @@ async def run_comparative_analysis(request: ComparativeJobRequest):
             problem = TSPProblem(num_cities=request.problem_size)
             problem.generate(euclidean=True, seed=request.seed)
         elif request.problem_type == "portfolio":
-            problem = PortfolioProblem(num_assets=request.problem_size)
-            problem.generate(risk_aversion=0.5, seed=request.seed)
+            if request.num_selected is None:
+                raise ValueError("num_selected is required when problem_type='portfolio'")
+            problem = PortfolioProblem(num_assets=request.problem_size, 
+                                       num_selected=request.num_selected,
+                                       risk_aversion=request.risk_aversion if request.risk_aversion is not None else 0.5)
+            problem.generate(seed=request.seed)
         else:
             raise ValueError(f"Unsupported problem type: {request.problem_type}")
         
@@ -1032,8 +1059,12 @@ async def analyze_routing(request: RoutingAnalysisRequest):
             problem = TSPProblem(num_cities=request.problem_size)
             problem.generate(euclidean=True)
         elif request.problem_type == "portfolio":
-            problem = PortfolioProblem(num_assets=request.problem_size)
-            problem.generate(risk_aversion=0.5)
+            if request.num_selected is None:
+                raise ValueError("num_selected is required when problem_type='portfolio'")
+            problem = PortfolioProblem(num_assets=request.problem_size, 
+                                       num_selected=request.num_selected, 
+                                       risk_aversion=request.risk_aversion if request.risk_aversion is not None else 0.5)
+            problem.generate()
         else:
             raise ValueError(f"Unsupported problem type: {request.problem_type}")
         
@@ -1115,8 +1146,12 @@ async def explain_routing_decision(request: RoutingAnalysisRequest):
             problem = TSPProblem(num_cities=request.problem_size)
             problem.generate(euclidean=True)
         elif request.problem_type == "portfolio":
-            problem = PortfolioProblem(num_assets=request.problem_size)
-            problem.generate(risk_aversion=0.5)
+            if request.num_selected is None:
+                raise ValueError("num_selected is required when problem_type='portfolio'")
+            problem = PortfolioProblem(num_assets=request.problem_size,
+                                    num_selected=request.num_selected,
+                                    risk_aversion=request.risk_aversion if request.risk_aversion is not None else 0.5)
+            problem.generate()
         else:
             raise ValueError(f"Unsupported problem type: {request.problem_type}")
         
@@ -1204,8 +1239,12 @@ async def suggest_routing_alternatives(request: RoutingAnalysisRequest):
             problem = TSPProblem(num_cities=request.problem_size)
             problem.generate(euclidean=True)
         elif request.problem_type == "portfolio":
-            problem = PortfolioProblem(num_assets=request.problem_size)
-            problem.generate(risk_aversion=0.5)
+            if request.num_selected is None:
+                raise ValueError("num_selected is required when problem_type='portfolio'")
+            problem = PortfolioProblem(num_assets=request.problem_size, 
+                                       num_selected=request.num_selected,
+                                       risk_aversion=request.risk_aversion if request.risk_aversion is not None else 0.5)
+            problem.generate()
         else:
             raise ValueError(f"Unsupported problem type: {request.problem_type}")
         
