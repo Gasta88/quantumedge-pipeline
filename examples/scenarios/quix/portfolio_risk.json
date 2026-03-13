@@ -1,0 +1,13 @@
+{
+  "name": "Financial Risk Modeling",
+  "description": "Portfolio risk assessment and VaR estimation using quantum sampling on QuiX cloud.",
+  "problem_type": "Portfolio",
+  "problem_size": 40,
+  "problem_params": {
+    "seed": 300
+  },
+  "deployment_profile": "datacenter_rack",
+  "strategy": "balanced",
+  "comparative_mode": true,
+  "context": "Financial institutions model portfolio risk by sampling correlated asset returns. Quantum sampling on QuiX's photonic processor provides quadratic speed-up potential for Monte Carlo methods, running from a standard data-center rack."
+}

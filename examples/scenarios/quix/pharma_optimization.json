@@ -1,0 +1,14 @@
+{
+  "name": "Drug Discovery Sampling",
+  "description": "Molecular conformation sampling for pharmaceutical lead optimisation on QuiX photonic hardware.",
+  "problem_type": "MaxCut",
+  "problem_size": 50,
+  "problem_params": {
+    "edge_probability": 0.3,
+    "seed": 200
+  },
+  "deployment_profile": "hpc_cluster",
+  "strategy": "quality_optimized",
+  "comparative_mode": true,
+  "context": "Pharma companies need to explore molecular energy landscapes efficiently. The MaxCut formulation maps molecular interaction graphs to find optimal conformations, leveraging QuiX's high-fidelity silicon-nitride photonic processor in an HPC cluster."
+}

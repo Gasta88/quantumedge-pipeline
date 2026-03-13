@@ -113,3 +113,6 @@ validation.py
 
 # Benchmarking
 benchmark_results/*
+
+#Specs
+specs/

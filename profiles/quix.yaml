@@ -1,0 +1,37 @@
+# QuiX Quantum Company Profile
+# Data Center Quantum Computing - Silicon Nitride Photonic
+# Target: HPC clusters, data center racks, cloud deployments
+
+name: "QuiX Quantum"
+tagline: "Data Center Quantum Computing - Silicon Nitride Photonic"
+
+hardware_backend: "quix_cloud"
+
+deployment_profiles:
+  primary: "hpc_cluster"
+  available:
+    - "hpc_cluster"
+    - "datacenter_rack"
+    - "cloud_node"
+
+routing:
+  strategy_default: "cost_per_job"
+  key_metric: "throughput"
+  power_unit: "pue_adjusted"      # Power Usage Effectiveness
+
+energy_model:
+  framing: "PUE"
+  label: "Data Center Energy Efficiency"
+  warn_threshold_pct: 90
+
+demo_scenarios:
+  - name: "Drug Discovery Sampling"
+    file: "examples/scenarios/quix/pharma_optimization.json"
+  - name: "Financial Risk Modeling"
+    file: "examples/scenarios/quix/portfolio_risk.json"
+  - name: "Hydrology Simulation"
+    file: "examples/scenarios/quix/hydrology.json"
+
+docs:
+  integration: "docs/quix-integration.md"
+  pitch_focus: "Data center integration, cloud API, 2026 universal computer"

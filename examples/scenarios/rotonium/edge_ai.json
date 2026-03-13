@@ -1,0 +1,14 @@
+{
+  "name": "Edge AI Acceleration",
+  "description": "Quantum-assisted feature selection for on-device ML inference under mobile power constraints.",
+  "problem_type": "MaxCut",
+  "problem_size": 30,
+  "problem_params": {
+    "edge_probability": 0.35,
+    "seed": 77
+  },
+  "edge_profile": "mobile",
+  "strategy": "balanced",
+  "comparative_mode": true,
+  "context": "Mobile edge devices run ML inference with limited battery. Graph-based feature selection (MaxCut) identifies the most informative sensor inputs to reduce model complexity and power draw, accelerated by the Rotonium room-temperature QPU."
+}
