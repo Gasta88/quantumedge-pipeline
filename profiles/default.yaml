@@ -1,0 +1,36 @@
+# Default Company Profile
+# Falls back to Rotonium configuration for backward compatibility
+
+name: "Rotonium"
+tagline: "Edge Quantum Computing - OAM Photonic QPU"
+
+hardware_backend: "rotonium_mock"
+
+deployment_profiles:
+  primary: "aerospace"
+  available:
+    - "aerospace"
+    - "mobile"
+    - "ground_server"
+
+routing:
+  strategy_default: "energy_optimized"
+  key_metric: "swap_score"
+  power_unit: "watts_battery"
+
+energy_model:
+  framing: "SWaP"
+  label: "Battery Budget Used"
+  warn_threshold_pct: 80
+
+demo_scenarios:
+  - name: "UAV Path Planning"
+    file: "examples/scenarios/rotonium/aerospace_routing.json"
+  - name: "Satellite Orbit Optimization"
+    file: "examples/scenarios/rotonium/satellite_optimization.json"
+  - name: "Edge AI Acceleration"
+    file: "examples/scenarios/rotonium/edge_ai.json"
+
+docs:
+  integration: "docs/rotonium-integration.md"
+  pitch_focus: "Edge deployment, aerospace, NATO DIANA relevance"

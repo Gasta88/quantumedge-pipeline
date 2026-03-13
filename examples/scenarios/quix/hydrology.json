@@ -1,0 +1,14 @@
+{
+  "name": "Hydrology Simulation",
+  "description": "Water-network flow optimisation for flood risk management using quantum-classical hybrid methods.",
+  "problem_type": "MaxCut",
+  "problem_size": 45,
+  "problem_params": {
+    "edge_probability": 0.2,
+    "seed": 400
+  },
+  "deployment_profile": "cloud_node",
+  "strategy": "balanced",
+  "comparative_mode": true,
+  "context": "Deltares and QuiX Quantum collaborate on quantum modelling for water management. The MaxCut formulation partitions drainage networks to optimise pump-station activation sequences, reducing flood risk while minimising energy usage via cloud-hosted QuiX quantum hardware."
+}

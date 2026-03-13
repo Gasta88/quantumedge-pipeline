@@ -40,6 +40,8 @@ import numpy as np
 
 # Import application components
 from src.config import settings
+from src.profile_loader import get_active_profile
+from src.backends import create_backend
 from src.api.orchestrator import JobOrchestrator
 from src.router.quantum_router import QuantumRouter, RoutingStrategy
 from src.router.edge_simulator import EdgeEnvironment, DeploymentProfile
@@ -47,10 +49,14 @@ from src.problems.maxcut import MaxCutProblem
 from src.problems.tsp import TSPProblem
 from src.problems.portfolio import PortfolioProblem
 
+# Load active company profile and backend
+_active_profile = get_active_profile()
+_backend = create_backend(_active_profile.hardware_backend)
+
 # Configure logging
 logging.basicConfig(
     level=getattr(logging, settings.api.log_level),
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
@@ -59,13 +65,14 @@ logger = logging.getLogger(__name__)
 # Utility Functions
 # =============================================================================
 
+
 def convert_numpy_types(obj):
     """
     Recursively convert numpy types to Python native types for JSON serialization.
-    
+
     Args:
         obj: Object that may contain numpy types
-        
+
     Returns:
         Object with numpy types converted to Python native types
     """
@@ -89,48 +96,43 @@ def convert_numpy_types(obj):
 # Pydantic Models (Request/Response Schemas)
 # =============================================================================
 
+
 class MaxCutJobRequest(BaseModel):
     """Request model for MaxCut problem submission."""
+
     num_nodes: int = Field(
-        ..., 
-        ge=5, 
-        le=100, 
-        description="Number of nodes in the graph",
-        example=30
+        ..., ge=5, le=100, description="Number of nodes in the graph", example=30
     )
     edge_probability: float = Field(
-        0.3, 
-        ge=0.0, 
-        le=1.0, 
-        description="Probability of edge existence between nodes",
-        example=0.3
+        0.3, ge=0.0, le=1.0, description="Probability of edge existence between nodes", example=0.3
     )
     edge_profile: str = Field(
-        "aerospace", 
+        "aerospace",
         description="Edge deployment profile: aerospace, mobile, ground_server",
-        example="aerospace"
+        example="aerospace",
     )
     strategy: str = Field(
-        "balanced", 
+        "balanced",
         description="Routing strategy: balanced, energy_optimized, latency_optimized, quality_optimized",
-        example="balanced"
+        example="balanced",
     )
-    seed: Optional[int] = Field(
-        None, 
-        description="Random seed for reproducibility",
-        example=42
-    )
+    seed: Optional[int] = Field(None, description="Random seed for reproducibility", example=42)
 
-    @validator('edge_profile')
+    @validator("edge_profile")
     def validate_edge_profile(cls, v):
-        valid_profiles = ['aerospace', 'mobile', 'ground_server']
+        valid_profiles = ["aerospace", "mobile", "ground_server"]
         if v not in valid_profiles:
             raise ValueError(f"edge_profile must be one of {valid_profiles}")
         return v
 
-    @validator('strategy')
+    @validator("strategy")
     def validate_strategy(cls, v):
-        valid_strategies = ['balanced', 'energy_optimized', 'latency_optimized', 'quality_optimized']
+        valid_strategies = [
+            "balanced",
+            "energy_optimized",
+            "latency_optimized",
+            "quality_optimized",
+        ]
         if v not in valid_strategies:
             raise ValueError(f"strategy must be one of {valid_strategies}")
         return v
@@ -138,44 +140,32 @@ class MaxCutJobRequest(BaseModel):
 
 class TSPJobRequest(BaseModel):
     """Request model for TSP problem submission."""
-    num_cities: int = Field(
-        ..., 
-        ge=5, 
-        le=50, 
-        description="Number of cities in the tour",
-        example=15
-    )
-    euclidean: bool = Field(
-        True, 
-        description="Use Euclidean distances (2D plane)",
-        example=True
-    )
-    edge_profile: str = Field(
-        "aerospace", 
-        description="Edge deployment profile",
-        example="aerospace"
-    )
-    strategy: str = Field(
-        "balanced", 
-        description="Routing strategy",
-        example="balanced"
-    )
-    seed: Optional[int] = Field(
-        None, 
-        description="Random seed for reproducibility",
-        example=42
-    )
 
-    @validator('edge_profile')
+    num_cities: int = Field(
+        ..., ge=5, le=50, description="Number of cities in the tour", example=15
+    )
+    euclidean: bool = Field(True, description="Use Euclidean distances (2D plane)", example=True)
+    edge_profile: str = Field(
+        "aerospace", description="Edge deployment profile", example="aerospace"
+    )
+    strategy: str = Field("balanced", description="Routing strategy", example="balanced")
+    seed: Optional[int] = Field(None, description="Random seed for reproducibility", example=42)
+
+    @validator("edge_profile")
     def validate_edge_profile(cls, v):
-        valid_profiles = ['aerospace', 'mobile', 'ground_server']
+        valid_profiles = ["aerospace", "mobile", "ground_server"]
         if v not in valid_profiles:
             raise ValueError(f"edge_profile must be one of {valid_profiles}")
         return v
 
-    @validator('strategy')
+    @validator("strategy")
     def validate_strategy(cls, v):
-        valid_strategies = ['balanced', 'energy_optimized', 'latency_optimized', 'quality_optimized']
+        valid_strategies = [
+            "balanced",
+            "energy_optimized",
+            "latency_optimized",
+            "quality_optimized",
+        ]
         if v not in valid_strategies:
             raise ValueError(f"strategy must be one of {valid_strategies}")
         return v
@@ -183,53 +173,41 @@ class TSPJobRequest(BaseModel):
 
 class PortfolioJobRequest(BaseModel):
     """Request model for Portfolio optimization problem submission."""
+
     num_assets: int = Field(
-        ..., 
-        ge=5, 
-        le=100, 
-        description="Number of assets in portfolio",
-        example=20
+        ..., ge=5, le=100, description="Number of assets in portfolio", example=20
     )
     num_selected: int = Field(
-        ..., 
-        ge=1, 
-        le=100, 
-        description="Number of assets to select",
-        example=5
+        ..., ge=1, le=100, description="Number of assets to select", example=5
     )
     risk_aversion: float = Field(
-        0.5, 
-        ge=0.0, 
-        le=1.0, 
+        0.5,
+        ge=0.0,
+        le=1.0,
         description="Risk aversion parameter (0=risk-seeking, 1=risk-averse)",
-        example=0.5
+        example=0.5,
     )
     edge_profile: str = Field(
-        "ground_server", 
-        description="Edge deployment profile",
-        example="ground_server"
+        "ground_server", description="Edge deployment profile", example="ground_server"
     )
-    strategy: str = Field(
-        "balanced", 
-        description="Routing strategy",
-        example="balanced"
-    )
-    seed: Optional[int] = Field(
-        None, 
-        description="Random seed for reproducibility",
-        example=42
-    )
+    strategy: str = Field("balanced", description="Routing strategy", example="balanced")
+    seed: Optional[int] = Field(None, description="Random seed for reproducibility", example=42)
 
-    @validator('edge_profile')
+    @validator("edge_profile")
     def validate_edge_profile(cls, v):
-        valid_profiles = ['aerospace', 'mobile', 'ground_server']
+        valid_profiles = ["aerospace", "mobile", "ground_server"]
         if v not in valid_profiles:
             raise ValueError(f"edge_profile must be one of {valid_profiles}")
         return v
 
-    @validator('strategy')
+    @validator("strategy")
     def validate_strategy(cls, v):
-        valid_strategies = ['balanced', 'energy_optimized', 'latency_optimized', 'quality_optimized']
+        valid_strategies = [
+            "balanced",
+            "energy_optimized",
+            "latency_optimized",
+            "quality_optimized",
+        ]
         if v not in valid_strategies:
             raise ValueError(f"strategy must be one of {valid_strategies}")
         return v
@@ -237,6 +215,7 @@ class PortfolioJobRequest(BaseModel):
 
 class JobResponse(BaseModel):
     """Response model for job execution results."""
+
     job_id: str = Field(..., description="Unique job identifier")
     status: str = Field(..., description="Job status: completed, failed")
     problem_type: str = Field(..., description="Type of problem: maxcut, tsp, portfolio")
@@ -269,47 +248,53 @@ class JobResponse(BaseModel):
                 "energy_consumed_mj": 120.5,
                 "is_valid": True,
                 "solution_quality": 0.92,
-                "timestamp": "2025-01-06T20:30:00"
+                "timestamp": "2025-01-06T20:30:00",
             }
         }
 
 
 class ComparativeJobRequest(BaseModel):
     """Request model for comparative classical vs quantum analysis."""
+
     problem_type: str = Field(..., description="Problem type: maxcut, tsp, portfolio")
     problem_size: int = Field(..., ge=5, le=100, description="Problem size")
     edge_profile: str = Field("aerospace", description="Edge deployment profile")
     seed: Optional[int] = Field(None, description="Random seed")
-    num_selected: Optional[int] = Field(None,ge=1,le=100, description="Number of assets to select")
-    risk_aversion: Optional[float] = Field(0.5, ge=0.0, le=1.0, description="Risk aversion parameter (0=risk-seeking, 1=risk-averse)")
+    num_selected: Optional[int] = Field(
+        None, ge=1, le=100, description="Number of assets to select"
+    )
+    risk_aversion: Optional[float] = Field(
+        0.5, ge=0.0, le=1.0, description="Risk aversion parameter (0=risk-seeking, 1=risk-averse)"
+    )
 
-    @validator('problem_type')
+    @validator("problem_type")
     def validate_problem_type(cls, v):
-        valid_types = ['maxcut', 'tsp', 'portfolio']
+        valid_types = ["maxcut", "tsp", "portfolio"]
         if v not in valid_types:
             raise ValueError(f"problem_type must be one of {valid_types}")
         return v
 
-    @validator('edge_profile')
+    @validator("edge_profile")
     def validate_edge_profile(cls, v):
-        valid_profiles = ['aerospace', 'mobile', 'ground_server']
+        valid_profiles = ["aerospace", "mobile", "ground_server"]
         if v not in valid_profiles:
             raise ValueError(f"edge_profile must be one of {valid_profiles}")
         return v
-    
-    @validator('num_selected')
+
+    @validator("num_selected")
     def validate_num_selected(cls, v, values):
         """Validate num_selected is provided for portfolio problems."""
-        if 'problem_type' in values and values['problem_type'] == 'portfolio':
+        if "problem_type" in values and values["problem_type"] == "portfolio":
             if v is None:
                 raise ValueError("num_selected is required when problem_type='portfolio'")
-            if 'problem_size' in values and v > values['problem_size']:
+            if "problem_size" in values and v > values["problem_size"]:
                 raise ValueError("num_selected cannot exceed problem_size (num_assets)")
         return v
 
 
 class ComparativeJobResponse(BaseModel):
     """Response model for comparative analysis results."""
+
     job_id: str
     success: bool
     problem_type: str
@@ -326,46 +311,58 @@ class ComparativeJobResponse(BaseModel):
 
 class RoutingAnalysisRequest(BaseModel):
     """Request model for routing analysis without execution."""
+
     problem_type: str = Field(..., description="Problem type: maxcut, tsp, portfolio")
     problem_size: int = Field(..., ge=5, le=100, description="Problem size")
     edge_profile: str = Field("aerospace", description="Deployment profile")
     strategy: str = Field("balanced", description="Routing strategy")
-    num_selected: Optional[int] = Field(None,ge=1,le=100, description="Number of assets to select")
-    risk_aversion: Optional[float] = Field(0.5, ge=0.0, le=1.0, description="Risk aversion parameter (0=risk-seeking, 1=risk-averse)")
+    num_selected: Optional[int] = Field(
+        None, ge=1, le=100, description="Number of assets to select"
+    )
+    risk_aversion: Optional[float] = Field(
+        0.5, ge=0.0, le=1.0, description="Risk aversion parameter (0=risk-seeking, 1=risk-averse)"
+    )
 
-    @validator('problem_type')
+    @validator("problem_type")
     def validate_problem_type(cls, v):
-        valid_types = ['maxcut', 'tsp', 'portfolio']
+        valid_types = ["maxcut", "tsp", "portfolio"]
         if v not in valid_types:
             raise ValueError(f"problem_type must be one of {valid_types}")
         return v
 
-    @validator('edge_profile')
+    @validator("edge_profile")
     def validate_edge_profile(cls, v):
-        valid_profiles = ['aerospace', 'mobile', 'ground_server']
+        valid_profiles = ["aerospace", "mobile", "ground_server"]
         if v not in valid_profiles:
             raise ValueError(f"edge_profile must be one of {valid_profiles}")
         return v
 
-    @validator('strategy')
+    @validator("strategy")
     def validate_strategy(cls, v):
-        valid_strategies = ['balanced', 'energy_optimized', 'latency_optimized', 'quality_optimized']
+        valid_strategies = [
+            "balanced",
+            "energy_optimized",
+            "latency_optimized",
+            "quality_optimized",
+        ]
         if v not in valid_strategies:
             raise ValueError(f"strategy must be one of {valid_strategies}")
         return v
 
-    @validator('num_selected')
+    @validator("num_selected")
     def validate_num_selected(cls, v, values):
         """Validate num_selected is provided for portfolio problems."""
-        if 'problem_type' in values and values['problem_type'] == 'portfolio':
+        if "problem_type" in values and values["problem_type"] == "portfolio":
             if v is None:
                 raise ValueError("num_selected is required when problem_type='portfolio'")
-            if 'problem_size' in values and v > values['problem_size']:
+            if "problem_size" in values and v > values["problem_size"]:
                 raise ValueError("num_selected cannot exceed problem_size (num_assets)")
         return v
 
+
 class RoutingAnalysisResponse(BaseModel):
     """Response model for routing analysis."""
+
     decision: str
     reasoning: str
     confidence: float
@@ -380,6 +377,7 @@ class RoutingAnalysisResponse(BaseModel):
 
 class HealthResponse(BaseModel):
     """Response model for health check."""
+
     status: str
     version: str
     environment: str
@@ -389,6 +387,7 @@ class HealthResponse(BaseModel):
 
 class SystemInfoResponse(BaseModel):
     """Response model for system information."""
+
     application: Dict[str, Any]
     configuration: Dict[str, Any]
     capabilities: Dict[str, Any]
@@ -396,6 +395,7 @@ class SystemInfoResponse(BaseModel):
 
 class EdgeProfileResponse(BaseModel):
     """Response model for edge profile information."""
+
     profile_name: str
     power_budget_watts: float
     thermal_limit_celsius: float
@@ -460,24 +460,25 @@ app.add_middleware(
 # Middleware & Error Handlers
 # =============================================================================
 
+
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     """Log all incoming requests with timing information."""
     start_time = time.time()
-    
+
     # Log request
     logger.info(f"Request: {request.method} {request.url.path}")
-    
+
     # Process request
     response = await call_next(request)
-    
+
     # Log response
     process_time = (time.time() - start_time) * 1000
     logger.info(f"Response: {response.status_code} - {process_time:.2f}ms")
-    
+
     # Add custom headers
     response.headers["X-Process-Time"] = f"{process_time:.2f}ms"
-    
+
     return response
 
 
@@ -487,11 +488,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     logger.warning(f"Validation error: {exc}")
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content={
-            "error": "Validation Error",
-            "detail": exc.errors(),
-            "body": exc.body
-        }
+        content={"error": "Validation Error", "detail": exc.errors(), "body": exc.body},
     )
 
 
@@ -500,11 +497,7 @@ async def http_exception_handler(request: Request, exc: HTTPException):
     """Handle HTTP exceptions."""
     logger.error(f"HTTP exception: {exc.status_code} - {exc.detail}")
     return JSONResponse(
-        status_code=exc.status_code,
-        content={
-            "error": exc.detail,
-            "status_code": exc.status_code
-        }
+        status_code=exc.status_code, content={"error": exc.detail, "status_code": exc.status_code}
     )
 
 
@@ -517,8 +510,8 @@ async def general_exception_handler(request: Request, exc: Exception):
         content={
             "error": "Internal Server Error",
             "detail": str(exc) if settings.api.debug else "An unexpected error occurred",
-            "type": type(exc).__name__
-        }
+            "type": type(exc).__name__,
+        },
     )
 
 
@@ -526,17 +519,18 @@ async def general_exception_handler(request: Request, exc: Exception):
 # Health Check & System Info Endpoints
 # =============================================================================
 
+
 @app.get("/health", response_model=HealthResponse, tags=["System"])
 async def health_check():
     """
     Check system health and service availability.
-    
+
     Returns the current status of all system components including:
     - API service status
     - Orchestrator availability
     - Router availability
     - Database connection (if enabled)
-    
+
     This endpoint is useful for:
     - Load balancer health checks
     - Monitoring and alerting
@@ -545,7 +539,7 @@ async def health_check():
     try:
         # Database status (disabled due to async driver requirements)
         db_status = "disabled"
-        
+
         return HealthResponse(
             status="healthy",
             version=settings.api.version,
@@ -555,8 +549,8 @@ async def health_check():
                 "api": "ready",
                 "orchestrator": "ready",
                 "router": "ready",
-                "database": db_status
-            }
+                "database": db_status,
+            },
         )
     except Exception as e:
         logger.error(f"Health check failed: {e}")
@@ -567,7 +561,7 @@ async def health_check():
 async def get_system_info():
     """
     Get comprehensive system information and configuration.
-    
+
     Returns details about:
     - Application version and environment
     - Configuration settings
@@ -580,31 +574,34 @@ async def get_system_info():
             "name": settings.api.title,
             "version": settings.api.version,
             "environment": settings.environment,
-            "debug": settings.api.debug
+            "debug": settings.api.debug,
         },
         configuration={
             "quantum_backend": settings.quantum.backend,
             "quantum_shots": settings.quantum.shots,
             "quantum_max_qubits": settings.quantum.max_qubits,
             "database_enabled": bool(settings.database),
-            "default_edge_profile": settings.edge.default_profile
+            "default_edge_profile": settings.edge.default_profile,
+            "active_profile": {
+                "name": _active_profile.name,
+                "tagline": _active_profile.tagline,
+                "hardware_backend": _active_profile.hardware_backend,
+                "deployment_profiles": _active_profile.deployment_profiles.available,
+                "energy_model": _active_profile.energy_model.framing,
+            },
         },
         capabilities={
             "problem_types": ["maxcut", "tsp", "portfolio"],
             "solver_types": ["classical", "quantum", "hybrid"],
-            "edge_profiles": ["aerospace", "mobile", "ground_server"],
+            "edge_profiles": _active_profile.deployment_profiles.available,
             "routing_strategies": [
-                "balanced", 
-                "energy_optimized", 
-                "latency_optimized", 
-                "quality_optimized"
+                "balanced",
+                "energy_optimized",
+                "latency_optimized",
+                "quality_optimized",
             ],
-            "max_problem_sizes": {
-                "maxcut": 100,
-                "tsp": 50,
-                "portfolio": 100
-            }
-        }
+            "max_problem_sizes": {"maxcut": 100, "tsp": 50, "portfolio": 100},
+        },
     )
 
 
@@ -612,7 +609,7 @@ async def get_system_info():
 async def get_system_stats():
     """
     Get system execution statistics.
-    
+
     Returns aggregated statistics about:
     - Total jobs executed
     - Success/failure rates
@@ -623,11 +620,8 @@ async def get_system_stats():
         # Create a temporary orchestrator to get stats
         orchestrator = JobOrchestrator(enable_db=False)
         stats = orchestrator.get_statistics()
-        
-        return {
-            "statistics": stats,
-            "timestamp": datetime.now().isoformat()
-        }
+
+        return {"statistics": stats, "timestamp": datetime.now().isoformat()}
     except Exception as e:
         logger.error(f"Failed to get system stats: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -636,6 +630,7 @@ async def get_system_stats():
 # =============================================================================
 # Job Submission Endpoints
 # =============================================================================
+
 
 @app.post("/api/v1/jobs/maxcut", response_model=JobResponse, tags=["Jobs"])
 async def submit_maxcut_job(request: MaxCutJobRequest):
@@ -676,52 +671,54 @@ async def submit_maxcut_job(request: MaxCutJobRequest):
     """
     try:
         logger.info(f"Received MaxCut job request: {request.dict()}")
-        
+
         # Generate problem
         problem = MaxCutProblem(num_nodes=request.num_nodes)
         problem.generate(edge_probability=request.edge_probability, seed=request.seed)
-        
-        logger.info(f"Generated MaxCut problem: {request.num_nodes} nodes, "
-                   f"edge_probability={request.edge_probability}")
-        
+
+        logger.info(
+            f"Generated MaxCut problem: {request.num_nodes} nodes, "
+            f"edge_probability={request.edge_probability}"
+        )
+
         # Create orchestrator (database disabled for now - async driver issue)
         orchestrator = JobOrchestrator(
             enable_db=False,  # Disabled: async driver required
             db_url=None,
-            strategy=request.strategy
+            strategy=request.strategy,
         )
-        
+
         # Execute job
         result = orchestrator.execute_job(
-            problem=problem,
-            edge_profile=request.edge_profile,
-            strategy=request.strategy
+            problem=problem, edge_profile=request.edge_profile, strategy=request.strategy
         )
-        
-        logger.info(f"MaxCut job completed: {result['job_id']}, "
-                   f"solver={result.get('solver_used')}, "
-                   f"time={result.get('time_ms')}ms")
-        
+
+        logger.info(
+            f"MaxCut job completed: {result['job_id']}, "
+            f"solver={result.get('solver_used')}, "
+            f"time={result.get('time_ms')}ms"
+        )
+
         # Convert to response model
         return JobResponse(
-            job_id=result['job_id'],
-            status="completed" if result['success'] else "failed",
-            problem_type=result['problem_type'],
-            problem_size=result['problem_size'],
-            solver_used=result.get('solver_used'),
-            routing_decision=result.get('routing_decision'),
-            routing_reason=result.get('routing_reason'),
-            routing_confidence=result.get('routing_confidence'),
-            solution=result.get('solution'),
-            cost=result.get('cost'),
-            time_ms=result.get('time_ms'),
-            energy_consumed_mj=result.get('energy_consumed_mj'),
-            is_valid=result.get('is_valid'),
-            solution_quality=result.get('solution_quality'),
-            timestamp=result['timestamp'],
-            error=result.get('error')
+            job_id=result["job_id"],
+            status="completed" if result["success"] else "failed",
+            problem_type=result["problem_type"],
+            problem_size=result["problem_size"],
+            solver_used=result.get("solver_used"),
+            routing_decision=result.get("routing_decision"),
+            routing_reason=result.get("routing_reason"),
+            routing_confidence=result.get("routing_confidence"),
+            solution=result.get("solution"),
+            cost=result.get("cost"),
+            time_ms=result.get("time_ms"),
+            energy_consumed_mj=result.get("energy_consumed_mj"),
+            is_valid=result.get("is_valid"),
+            solution_quality=result.get("solution_quality"),
+            timestamp=result["timestamp"],
+            error=result.get("error"),
         )
-        
+
     except ValueError as e:
         logger.error(f"Invalid MaxCut job request: {e}")
         raise HTTPException(status_code=400, detail=str(e))
@@ -763,52 +760,53 @@ async def submit_tsp_job(request: TSPJobRequest):
     """
     try:
         logger.info(f"Received TSP job request: {request.dict()}")
-        
+
         # Generate problem
         problem = TSPProblem(num_cities=request.num_cities)
         problem.generate(euclidean=request.euclidean, seed=request.seed)
-        
-        logger.info(f"Generated TSP problem: {request.num_cities} cities, "
-                   f"euclidean={request.euclidean}")
-        
+
+        logger.info(
+            f"Generated TSP problem: {request.num_cities} cities, euclidean={request.euclidean}"
+        )
+
         # Create orchestrator (database disabled for now - async driver issue)
         orchestrator = JobOrchestrator(
             enable_db=False,  # Disabled: async driver required
             db_url=None,
-            strategy=request.strategy
+            strategy=request.strategy,
         )
-        
+
         # Execute job
         result = orchestrator.execute_job(
-            problem=problem,
-            edge_profile=request.edge_profile,
-            strategy=request.strategy
+            problem=problem, edge_profile=request.edge_profile, strategy=request.strategy
         )
-        
-        logger.info(f"TSP job completed: {result['job_id']}, "
-                   f"solver={result.get('solver_used')}, "
-                   f"time={result.get('time_ms')}ms")
-        
+
+        logger.info(
+            f"TSP job completed: {result['job_id']}, "
+            f"solver={result.get('solver_used')}, "
+            f"time={result.get('time_ms')}ms"
+        )
+
         # Convert to response model
         return JobResponse(
-            job_id=result['job_id'],
-            status="completed" if result['success'] else "failed",
-            problem_type=result['problem_type'],
-            problem_size=result['problem_size'],
-            solver_used=result.get('solver_used'),
-            routing_decision=result.get('routing_decision'),
-            routing_reason=result.get('routing_reason'),
-            routing_confidence=result.get('routing_confidence'),
-            solution=result.get('solution'),
-            cost=result.get('cost'),
-            time_ms=result.get('time_ms'),
-            energy_consumed_mj=result.get('energy_consumed_mj'),
-            is_valid=result.get('is_valid'),
-            solution_quality=result.get('solution_quality'),
-            timestamp=result['timestamp'],
-            error=result.get('error')
+            job_id=result["job_id"],
+            status="completed" if result["success"] else "failed",
+            problem_type=result["problem_type"],
+            problem_size=result["problem_size"],
+            solver_used=result.get("solver_used"),
+            routing_decision=result.get("routing_decision"),
+            routing_reason=result.get("routing_reason"),
+            routing_confidence=result.get("routing_confidence"),
+            solution=result.get("solution"),
+            cost=result.get("cost"),
+            time_ms=result.get("time_ms"),
+            energy_consumed_mj=result.get("energy_consumed_mj"),
+            is_valid=result.get("is_valid"),
+            solution_quality=result.get("solution_quality"),
+            timestamp=result["timestamp"],
+            error=result.get("error"),
         )
-        
+
     except ValueError as e:
         logger.error(f"Invalid TSP job request: {e}")
         raise HTTPException(status_code=400, detail=str(e))
@@ -856,53 +854,59 @@ async def submit_portfolio_job(request: PortfolioJobRequest):
     """
     try:
         logger.info(f"Received Portfolio job request: {request.dict()}")
-        
+
         # Generate problem
-        problem = PortfolioProblem(num_assets=request.num_assets, num_selected=request.num_selected, risk_aversion=request.risk_aversion)
+        problem = PortfolioProblem(
+            num_assets=request.num_assets,
+            num_selected=request.num_selected,
+            risk_aversion=request.risk_aversion,
+        )
         problem.generate(seed=request.seed)
-        
-        logger.info(f"Generated Portfolio problem: {request.num_assets} assets, "
-                    f"num_selected={request.num_selected}, "
-                   f"risk_aversion={request.risk_aversion}")
-        
+
+        logger.info(
+            f"Generated Portfolio problem: {request.num_assets} assets, "
+            f"num_selected={request.num_selected}, "
+            f"risk_aversion={request.risk_aversion}"
+        )
+
         # Create orchestrator (database disabled for now - async driver issue)
         orchestrator = JobOrchestrator(
             enable_db=False,  # Disabled: async driver required
             db_url=None,
-            strategy=request.strategy
+            strategy=request.strategy,
         )
-        
+
         # Execute job
         result = orchestrator.execute_job(
-            problem=problem,
-            edge_profile=request.edge_profile,
-            strategy=request.strategy
+            problem=problem, edge_profile=request.edge_profile, strategy=request.strategy
         )
-        
-        logger.info(f"Portfolio job completed: {result['job_id']}, "
-                   f"solver={result.get('solver_used')}, "
-                   f"time={result.get('time_ms')}ms")
-        
+
+        logger.info(
+            f"Portfolio job completed: {result['job_id']}, "
+            f"solver={result.get('solver_used')}, "
+            f"time={result.get('time_ms')}ms"
+        )
+
         # Convert to response model
         return JobResponse(
-            job_id=result['job_id'],
-            status="completed" if result['success'] else "failed",
-            problem_type=result['problem_type'],
-            problem_size=result['problem_size'],
-            solver_used=result.get('solver_used'),
-            routing_decision=result.get('routing_decision'),
-            routing_reason=result.get('routing_reason'),
-            routing_confidence=result.get('routing_confidence'),
-            solution=result.get('solution'),
-            cost=result.get('cost'),
-            time_ms=result.get('time_ms'),
-            energy_consumed_mj=result.get('energy_consumed_mj'),
-            is_valid=result.get('is_valid'),
-            solution_quality=result.get('solution_quality'),
-            timestamp=result['timestamp'],
-            error=result.get('error')
+            job_id=result["job_id"],
+            status="completed" if result["success"] else "failed",
+            problem_type=result["problem_type"],
+            problem_size=result["problem_size"],
+            solver_used=result.get("solver_used"),
+            routing_decision=result.get("routing_decision"),
+            routing_reason=result.get("routing_reason"),
+            routing_confidence=result.get("routing_confidence"),
+            solution=result.get("solution"),
+            cost=result.get("cost"),
+            time_ms=result.get("time_ms"),
+            energy_consumed_mj=result.get("energy_consumed_mj"),
+            is_valid=result.get("is_valid"),
+            solution_quality=result.get("solution_quality"),
+            timestamp=result["timestamp"],
+            error=result.get("error"),
         )
-        
+
     except ValueError as e:
         logger.error(f"Invalid Portfolio job request: {e}")
         raise HTTPException(status_code=400, detail=str(e))
@@ -949,7 +953,7 @@ async def run_comparative_analysis(request: ComparativeJobRequest):
     """
     try:
         logger.info(f"Received comparative analysis request: {request.dict()}")
-        
+
         # Generate problem based on type
         if request.problem_type == "maxcut":
             problem = MaxCutProblem(num_nodes=request.problem_size)
@@ -960,50 +964,55 @@ async def run_comparative_analysis(request: ComparativeJobRequest):
         elif request.problem_type == "portfolio":
             if request.num_selected is None:
                 raise ValueError("num_selected is required when problem_type='portfolio'")
-            problem = PortfolioProblem(num_assets=request.problem_size, 
-                                       num_selected=request.num_selected,
-                                       risk_aversion=request.risk_aversion if request.risk_aversion is not None else 0.5)
+            problem = PortfolioProblem(
+                num_assets=request.problem_size,
+                num_selected=request.num_selected,
+                risk_aversion=request.risk_aversion if request.risk_aversion is not None else 0.5,
+            )
             problem.generate(seed=request.seed)
         else:
             raise ValueError(f"Unsupported problem type: {request.problem_type}")
-        
-        logger.info(f"Generated {request.problem_type} problem for comparative analysis: "
-                   f"size={request.problem_size}")
-        
+
+        logger.info(
+            f"Generated {request.problem_type} problem for comparative analysis: "
+            f"size={request.problem_size}"
+        )
+
         # Create orchestrator (database disabled for now - async driver issue)
         orchestrator = JobOrchestrator(
             enable_db=False,  # Disabled: async driver required
-            db_url=None
+            db_url=None,
         )
-        
+
         # Execute comparative analysis
         result = orchestrator.execute_comparative(
-            problem=problem,
-            edge_profile=request.edge_profile
+            problem=problem, edge_profile=request.edge_profile
         )
-        
-        logger.info(f"Comparative analysis completed: {result['job_id']}, "
-                   f"recommendation={result.get('recommendation')}")
-        
+
+        logger.info(
+            f"Comparative analysis completed: {result['job_id']}, "
+            f"recommendation={result.get('recommendation')}"
+        )
+
         # Convert numpy types to Python native types
         result = convert_numpy_types(result)
-        
+
         # Convert to response model
         return ComparativeJobResponse(
-            job_id=result['job_id'],
-            success=result['success'],
-            problem_type=result['problem_type'],
-            problem_size=result['problem_size'],
-            classical=result['classical'],
-            quantum=result['quantum'],
-            speedup_factor=result.get('speedup_factor'),
-            energy_ratio=result.get('energy_ratio'),
-            quality_diff=result.get('quality_diff'),
-            recommendation=result['recommendation'],
-            recommendation_reason=result['recommendation_reason'],
-            timestamp=result['timestamp']
+            job_id=result["job_id"],
+            success=result["success"],
+            problem_type=result["problem_type"],
+            problem_size=result["problem_size"],
+            classical=result["classical"],
+            quantum=result["quantum"],
+            speedup_factor=result.get("speedup_factor"),
+            energy_ratio=result.get("energy_ratio"),
+            quality_diff=result.get("quality_diff"),
+            recommendation=result["recommendation"],
+            recommendation_reason=result["recommendation_reason"],
+            timestamp=result["timestamp"],
         )
-        
+
     except ValueError as e:
         logger.error(f"Invalid comparative analysis request: {e}")
         raise HTTPException(status_code=400, detail=str(e))
@@ -1015,6 +1024,7 @@ async def run_comparative_analysis(request: ComparativeJobRequest):
 # =============================================================================
 # Routing Analysis Endpoints
 # =============================================================================
+
 
 @app.post("/api/v1/routing/analyze", response_model=RoutingAnalysisResponse, tags=["Routing"])
 async def analyze_routing(request: RoutingAnalysisRequest):
@@ -1050,7 +1060,7 @@ async def analyze_routing(request: RoutingAnalysisRequest):
     """
     try:
         logger.info(f"Received routing analysis request: {request.dict()}")
-        
+
         # Generate problem for analysis (not solving)
         if request.problem_type == "maxcut":
             problem = MaxCutProblem(num_nodes=request.problem_size)
@@ -1061,39 +1071,43 @@ async def analyze_routing(request: RoutingAnalysisRequest):
         elif request.problem_type == "portfolio":
             if request.num_selected is None:
                 raise ValueError("num_selected is required when problem_type='portfolio'")
-            problem = PortfolioProblem(num_assets=request.problem_size, 
-                                       num_selected=request.num_selected, 
-                                       risk_aversion=request.risk_aversion if request.risk_aversion is not None else 0.5)
+            problem = PortfolioProblem(
+                num_assets=request.problem_size,
+                num_selected=request.num_selected,
+                risk_aversion=request.risk_aversion if request.risk_aversion is not None else 0.5,
+            )
             problem.generate()
         else:
             raise ValueError(f"Unsupported problem type: {request.problem_type}")
-        
+
         # Create router with specified strategy
         strategy_map = {
-            'balanced': RoutingStrategy.BALANCED,
-            'energy_optimized': RoutingStrategy.ENERGY_OPTIMIZED,
-            'latency_optimized': RoutingStrategy.LATENCY_OPTIMIZED,
-            'quality_optimized': RoutingStrategy.QUALITY_OPTIMIZED
+            "balanced": RoutingStrategy.BALANCED,
+            "energy_optimized": RoutingStrategy.ENERGY_OPTIMIZED,
+            "latency_optimized": RoutingStrategy.LATENCY_OPTIMIZED,
+            "quality_optimized": RoutingStrategy.QUALITY_OPTIMIZED,
         }
         router = QuantumRouter(strategy=strategy_map[request.strategy])
-        
+
         # Get edge environment
         profile_map = {
-            'aerospace': DeploymentProfile.AEROSPACE,
-            'mobile': DeploymentProfile.MOBILE,
-            'ground_server': DeploymentProfile.GROUND_SERVER
+            "aerospace": DeploymentProfile.AEROSPACE,
+            "mobile": DeploymentProfile.MOBILE,
+            "ground_server": DeploymentProfile.GROUND_SERVER,
         }
         edge_env = EdgeEnvironment(profile_map[request.edge_profile])
-        
+
         # Perform routing analysis
         routing_result = router.route_problem(problem, edge_env)
-        
-        logger.info(f"Routing analysis complete: decision={routing_result['decision']}, "
-                   f"confidence={routing_result['confidence']:.2f}")
-        
+
+        logger.info(
+            f"Routing analysis complete: decision={routing_result['decision']}, "
+            f"confidence={routing_result['confidence']:.2f}"
+        )
+
         # Convert to response model
         return RoutingAnalysisResponse(**routing_result)
-        
+
     except ValueError as e:
         logger.error(f"Invalid routing analysis request: {e}")
         raise HTTPException(status_code=400, detail=str(e))
@@ -1137,7 +1151,7 @@ async def explain_routing_decision(request: RoutingAnalysisRequest):
     """
     try:
         logger.info(f"Received routing explanation request: {request.dict()}")
-        
+
         # Generate problem for analysis
         if request.problem_type == "maxcut":
             problem = MaxCutProblem(num_nodes=request.problem_size)
@@ -1148,43 +1162,42 @@ async def explain_routing_decision(request: RoutingAnalysisRequest):
         elif request.problem_type == "portfolio":
             if request.num_selected is None:
                 raise ValueError("num_selected is required when problem_type='portfolio'")
-            problem = PortfolioProblem(num_assets=request.problem_size,
-                                    num_selected=request.num_selected,
-                                    risk_aversion=request.risk_aversion if request.risk_aversion is not None else 0.5)
+            problem = PortfolioProblem(
+                num_assets=request.problem_size,
+                num_selected=request.num_selected,
+                risk_aversion=request.risk_aversion if request.risk_aversion is not None else 0.5,
+            )
             problem.generate()
         else:
             raise ValueError(f"Unsupported problem type: {request.problem_type}")
-        
+
         # Create router
         strategy_map = {
-            'balanced': RoutingStrategy.BALANCED,
-            'energy_optimized': RoutingStrategy.ENERGY_OPTIMIZED,
-            'latency_optimized': RoutingStrategy.LATENCY_OPTIMIZED,
-            'quality_optimized': RoutingStrategy.QUALITY_OPTIMIZED
+            "balanced": RoutingStrategy.BALANCED,
+            "energy_optimized": RoutingStrategy.ENERGY_OPTIMIZED,
+            "latency_optimized": RoutingStrategy.LATENCY_OPTIMIZED,
+            "quality_optimized": RoutingStrategy.QUALITY_OPTIMIZED,
         }
         router = QuantumRouter(strategy=strategy_map[request.strategy])
-        
+
         # Get edge environment
         profile_map = {
-            'aerospace': DeploymentProfile.AEROSPACE,
-            'mobile': DeploymentProfile.MOBILE,
-            'ground_server': DeploymentProfile.GROUND_SERVER
+            "aerospace": DeploymentProfile.AEROSPACE,
+            "mobile": DeploymentProfile.MOBILE,
+            "ground_server": DeploymentProfile.GROUND_SERVER,
         }
         edge_env = EdgeEnvironment(profile_map[request.edge_profile])
-        
+
         # Get routing result
         routing_result = router.route_problem(problem, edge_env)
-        
+
         # Generate explanation
         explanation = router.explain_decision(routing_result)
-        
+
         logger.info(f"Routing explanation generated for {request.problem_type} problem")
-        
-        return {
-            "explanation": explanation,
-            "timestamp": datetime.now().isoformat()
-        }
-        
+
+        return {"explanation": explanation, "timestamp": datetime.now().isoformat()}
+
     except ValueError as e:
         logger.error(f"Invalid routing explanation request: {e}")
         raise HTTPException(status_code=400, detail=str(e))
@@ -1230,7 +1243,7 @@ async def suggest_routing_alternatives(request: RoutingAnalysisRequest):
     """
     try:
         logger.info(f"Received routing alternatives request: {request.dict()}")
-        
+
         # Generate problem for analysis
         if request.problem_type == "maxcut":
             problem = MaxCutProblem(num_nodes=request.problem_size)
@@ -1241,48 +1254,50 @@ async def suggest_routing_alternatives(request: RoutingAnalysisRequest):
         elif request.problem_type == "portfolio":
             if request.num_selected is None:
                 raise ValueError("num_selected is required when problem_type='portfolio'")
-            problem = PortfolioProblem(num_assets=request.problem_size, 
-                                       num_selected=request.num_selected,
-                                       risk_aversion=request.risk_aversion if request.risk_aversion is not None else 0.5)
+            problem = PortfolioProblem(
+                num_assets=request.problem_size,
+                num_selected=request.num_selected,
+                risk_aversion=request.risk_aversion if request.risk_aversion is not None else 0.5,
+            )
             problem.generate()
         else:
             raise ValueError(f"Unsupported problem type: {request.problem_type}")
-        
+
         # Create router
         strategy_map = {
-            'balanced': RoutingStrategy.BALANCED,
-            'energy_optimized': RoutingStrategy.ENERGY_OPTIMIZED,
-            'latency_optimized': RoutingStrategy.LATENCY_OPTIMIZED,
-            'quality_optimized': RoutingStrategy.QUALITY_OPTIMIZED
+            "balanced": RoutingStrategy.BALANCED,
+            "energy_optimized": RoutingStrategy.ENERGY_OPTIMIZED,
+            "latency_optimized": RoutingStrategy.LATENCY_OPTIMIZED,
+            "quality_optimized": RoutingStrategy.QUALITY_OPTIMIZED,
         }
         router = QuantumRouter(strategy=strategy_map[request.strategy])
-        
+
         # Get edge environment
         profile_map = {
-            'aerospace': DeploymentProfile.AEROSPACE,
-            'mobile': DeploymentProfile.MOBILE,
-            'ground_server': DeploymentProfile.GROUND_SERVER
+            "aerospace": DeploymentProfile.AEROSPACE,
+            "mobile": DeploymentProfile.MOBILE,
+            "ground_server": DeploymentProfile.GROUND_SERVER,
         }
         edge_env = EdgeEnvironment(profile_map[request.edge_profile])
-        
+
         # Get routing result
         routing_result = router.route_problem(problem, edge_env)
-        
+
         # Generate suggestions
         suggestions = router.suggest_alternatives(routing_result)
-        
+
         logger.info(f"Generated {len(suggestions)} routing alternatives")
-        
+
         return {
             "current_decision": {
-                "solver": routing_result['decision'],
-                "confidence": routing_result['confidence'],
-                "reasoning": routing_result['reasoning']
+                "solver": routing_result["decision"],
+                "confidence": routing_result["confidence"],
+                "reasoning": routing_result["reasoning"],
             },
             "suggestions": suggestions,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
-        
+
     except ValueError as e:
         logger.error(f"Invalid routing alternatives request: {e}")
         raise HTTPException(status_code=400, detail=str(e))
@@ -1295,16 +1310,17 @@ async def suggest_routing_alternatives(request: RoutingAnalysisRequest):
 # Configuration Endpoints
 # =============================================================================
 
+
 @app.get("/api/v1/config/edge-profiles", tags=["Configuration"])
 async def get_edge_profiles():
     """
     Get information about available edge deployment profiles.
-    
+
     Returns details for each supported edge profile:
     - **Aerospace**: Satellite/aircraft deployment (strict power limits)
     - **Mobile**: Smartphone/tablet (battery constrained)
     - **Ground Server**: Data center/server (relaxed constraints)
-    
+
     Each profile includes:
     - Power budget (watts)
     - Thermal limits (Celsius)
@@ -1312,7 +1328,7 @@ async def get_edge_profiles():
     - CPU cores
     - Maximum execution time (seconds)
     - Expected network latency (ms)
-    
+
     **Example**:
     ```bash
     curl http://localhost:8000/api/v1/config/edge-profiles
@@ -1320,7 +1336,7 @@ async def get_edge_profiles():
     """
     try:
         profiles = settings.edge.profiles
-        
+
         profile_info = {}
         for name, profile in profiles.items():
             profile_info[name] = EdgeProfileResponse(
@@ -1330,14 +1346,11 @@ async def get_edge_profiles():
                 memory_mb=profile.memory_mb,
                 cpu_cores=profile.cpu_cores,
                 max_execution_time_sec=profile.max_execution_time_sec,
-                network_latency_ms=profile.network_latency_ms
+                network_latency_ms=profile.network_latency_ms,
             )
-        
-        return {
-            "profiles": profile_info,
-            "default_profile": settings.edge.default_profile
-        }
-        
+
+        return {"profiles": profile_info, "default_profile": settings.edge.default_profile}
+
     except Exception as e:
         logger.error(f"Failed to get edge profiles: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -1347,17 +1360,17 @@ async def get_edge_profiles():
 async def get_routing_strategies():
     """
     Get information about available routing strategies.
-    
+
     Returns details for each supported routing strategy:
-    
+
     - **Balanced**: Balance time, energy, and quality (40% time, 30% energy, 30% quality)
     - **Energy Optimized**: Minimize energy consumption (best for battery-powered)
     - **Latency Optimized**: Minimize execution time (best for real-time apps)
     - **Quality Optimized**: Maximize solution quality (best for critical decisions)
-    
+
     Each strategy affects how the router scores classical vs quantum options
     and can override default routing logic.
-    
+
     **Example**:
     ```bash
     curl http://localhost:8000/api/v1/config/routing-strategies
@@ -1367,13 +1380,9 @@ async def get_routing_strategies():
         "balanced": {
             "name": "Balanced",
             "description": "Balance time, energy, and quality using weighted scoring",
-            "weights": {
-                "time": 0.40,
-                "energy": 0.30,
-                "quality": 0.30
-            },
+            "weights": {"time": 0.40, "energy": 0.30, "quality": 0.30},
             "use_cases": ["General purpose", "Mixed workloads", "Normal operations"],
-            "priority": "Balanced performance across all metrics"
+            "priority": "Balanced performance across all metrics",
         },
         "energy_optimized": {
             "name": "Energy Optimized",
@@ -1383,9 +1392,9 @@ async def get_routing_strategies():
                 "Battery-powered edge devices",
                 "Aerospace deployments",
                 "Mobile applications",
-                "Sustainable computing"
+                "Sustainable computing",
             ],
-            "characteristics": "Prefers solver with lower energy/solution ratio"
+            "characteristics": "Prefers solver with lower energy/solution ratio",
         },
         "latency_optimized": {
             "name": "Latency Optimized",
@@ -1395,9 +1404,9 @@ async def get_routing_strategies():
                 "Real-time applications",
                 "Navigation systems",
                 "Sensing and control",
-                "Interactive systems"
+                "Interactive systems",
             ],
-            "characteristics": "May use more power to finish faster"
+            "characteristics": "May use more power to finish faster",
         },
         "quality_optimized": {
             "name": "Quality Optimized",
@@ -1407,27 +1416,25 @@ async def get_routing_strategies():
                 "Critical decisions",
                 "Mission planning",
                 "Resource allocation",
-                "High-stakes optimization"
+                "High-stakes optimization",
             ],
-            "characteristics": "Willing to spend more time and energy for better results"
-        }
+            "characteristics": "Willing to spend more time and energy for better results",
+        },
     }
-    
-    return {
-        "strategies": strategies,
-        "default_strategy": "balanced"
-    }
+
+    return {"strategies": strategies, "default_strategy": "balanced"}
 
 
 # =============================================================================
 # Root Endpoint
 # =============================================================================
 
+
 @app.get("/", tags=["Root"])
 async def root():
     """
     API root endpoint with welcome message and quick links.
-    
+
     Provides navigation to key API resources:
     - Interactive API documentation
     - Health check endpoint
@@ -1440,7 +1447,7 @@ async def root():
         "documentation": {
             "swagger_ui": f"{settings.api.docs_url}",
             "redoc": f"{settings.api.redoc_url}",
-            "openapi_schema": "/openapi.json"
+            "openapi_schema": "/openapi.json",
         },
         "endpoints": {
             "health": "/health",
@@ -1451,22 +1458,23 @@ async def root():
             "comparative_analysis": "/api/v1/jobs/comparative",
             "routing_analysis": "/api/v1/routing/analyze",
             "edge_profiles": "/api/v1/config/edge-profiles",
-            "routing_strategies": "/api/v1/config/routing-strategies"
+            "routing_strategies": "/api/v1/config/routing-strategies",
         },
         "quick_start": {
             "example": "curl -X POST http://localhost:8000/api/v1/jobs/maxcut -H 'Content-Type: application/json' -d '{\"num_nodes\": 30, \"edge_probability\": 0.3}'",
-            "documentation_url": "https://github.com/Gasta88/quantumedge-pipeline"
+            "documentation_url": "https://github.com/Gasta88/quantumedge-pipeline",
         },
         "support": {
             "github": "https://github.com/Gasta88/quantumedge-pipeline",
-            "issues": "https://github.com/Gasta88/quantumedge-pipeline/issues"
-        }
+            "issues": "https://github.com/Gasta88/quantumedge-pipeline/issues",
+        },
     }
 
 
 # =============================================================================
 # Application Lifespan Events
 # =============================================================================
+
 
 @app.on_event("startup")
 async def startup_event():
@@ -1476,11 +1484,24 @@ async def startup_event():
     logger.info("=" * 80)
     logger.info(f"Version: {settings.api.version}")
     logger.info(f"Environment: {settings.environment}")
+    logger.info(f"Active Profile: {_active_profile.name} ({_active_profile.hardware_backend})")
     logger.info(f"Debug Mode: {settings.api.debug}")
     logger.info(f"API Host: {settings.api.host}:{settings.api.port}")
     logger.info(f"Database: {'Enabled' if settings.database else 'Disabled'}")
     logger.info(f"Quantum Backend: {settings.quantum.backend}")
-    logger.info(f"Documentation: http://{settings.api.host}:{settings.api.port}{settings.api.docs_url}")
+    logger.info(
+        f"Documentation: http://{settings.api.host}:{settings.api.port}{settings.api.docs_url}"
+    )
+    logger.info("=" * 80)
+    logger.info(f"Version: {settings.api.version}")
+    logger.info(f"Environment: {settings.environment}")
+    logger.info(f"Debug Mode: {settings.api.debug}")
+    logger.info(f"API Host: {settings.api.host}:{settings.api.port}")
+    logger.info(f"Database: {'Enabled' if settings.database else 'Disabled'}")
+    logger.info(f"Quantum Backend: {settings.quantum.backend}")
+    logger.info(
+        f"Documentation: http://{settings.api.host}:{settings.api.port}{settings.api.docs_url}"
+    )
     logger.info("=" * 80)
 
 
@@ -1499,12 +1520,12 @@ async def shutdown_event():
 
 if __name__ == "__main__":
     import uvicorn
-    
+
     uvicorn.run(
         "src.api.main:app",
         host=settings.api.host,
         port=settings.api.port,
         reload=settings.api.debug,
         log_level=settings.api.log_level.lower(),
-        workers=settings.api.workers if not settings.api.debug else 1
+        workers=settings.api.workers if not settings.api.debug else 1,
     )

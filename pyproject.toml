@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "quantumedge-pipeline"
-version = "0.1.0"
+version = "0.2.0"
 description = "Quantum-Classical Hybrid Pipeline for Edge Computing Optimization"
 authors = ["Francesco Gastaldello"]
 readme = "README.md"
@@ -42,6 +42,10 @@ pandas = "^2.2.0"
 # System Monitoring & Utilities
 psutil = "^7.0.0"
 tqdm = "^4.67.1"
+
+# Profile & Backend Support
+pyyaml = "^6.0"
+httpx = "^0.27.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"

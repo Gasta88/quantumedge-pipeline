@@ -1,0 +1,14 @@
+{
+  "name": "Satellite Orbit Optimization",
+  "description": "Low-earth-orbit satellite constellation scheduling — optimise observation windows and ground-station handoffs.",
+  "problem_type": "TSP",
+  "problem_size": 20,
+  "problem_params": {
+    "euclidean": true,
+    "seed": 101
+  },
+  "edge_profile": "aerospace",
+  "strategy": "energy_optimized",
+  "comparative_mode": true,
+  "context": "Satellites must visit ground stations in an optimal sequence during limited contact windows. The TSP formulation finds the shortest orbital transfer sequence subject to power and thermal limits of the onboard Rotonium QPU."
+}

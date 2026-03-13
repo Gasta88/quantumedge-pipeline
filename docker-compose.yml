@@ -42,6 +42,9 @@ services:
       APP_ENV: ${APP_ENV:-development}
       DEBUG: ${DEBUG:-true}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      # Company profile selection
+      QUANTUMEDGE_PROFILE: ${QUANTUMEDGE_PROFILE:-default}
+      QUIX_API_KEY: ${QUIX_API_KEY:-}
     env_file:
       - .env
     ports:
@@ -50,6 +53,7 @@ services:
       - ./src:/app/src
       - ./data:/app/data
       - ./logs:/app/logs
+      - ./profiles:/app/profiles
     depends_on:
       postgres-timescale:
         condition: service_healthy
@@ -86,6 +90,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-quantumedge}
       POSTGRES_USER: ${POSTGRES_USER:-qe_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-qe_pass}
+      QUANTUMEDGE_PROFILE: ${QUANTUMEDGE_PROFILE:-default}
+      QUIX_API_KEY: ${QUIX_API_KEY:-}
     env_file:
       - .env
     ports:
@@ -94,6 +100,8 @@ services:
       - ./dashboard:/app/dashboard
       - ./src:/app/src
       - ./data:/app/data
+      - ./profiles:/app/profiles
+      - ./examples:/app/examples
     depends_on:
       api:
         condition: service_healthy

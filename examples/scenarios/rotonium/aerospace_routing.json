@@ -1,0 +1,14 @@
+{
+  "name": "UAV Path Planning",
+  "description": "Autonomous UAV fleet coordination — partition airspace for patrol missions while minimising battery consumption.",
+  "problem_type": "MaxCut",
+  "problem_size": 40,
+  "problem_params": {
+    "edge_probability": 0.25,
+    "seed": 42
+  },
+  "edge_profile": "aerospace",
+  "strategy": "energy_optimized",
+  "comparative_mode": true,
+  "context": "UAVs with ~50 W peak power budget need real-time graph partitioning for swarm coordination. The MaxCut formulation minimises communication overhead between groups while maximising coverage efficiency under strict SWaP constraints."
+}
