@@ -129,52 +129,42 @@ Once services are running:
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                         USER INTERFACE                          │
-│  ┌──────────────────┐            ┌─────────────────────────┐   │
-│  │  Streamlit       │            │   REST API Clients      │   │
-│  │  Dashboard       │            │   (curl, Python, etc.)  │   │
-│  └────────┬─────────┘            └────────┬────────────────┘   │
+│  ┌──────────────────┐            ┌─────────────────────────┐    │
+│  │  Streamlit       │            │   REST API Clients      │    │
+│  │  Dashboard       │            │   (curl, Python, etc.)  │    │
+│  └────────┬─────────┘            └────────┬────────────────┘    │
 └───────────┼──────────────────────────────┼──────────────────────┘
             │                              │
             └──────────────┬───────────────┘
                            │
 ┌──────────────────────────▼────────────────────────────────────┐
 │                     FastAPI Server                            │
-│  ┌──────────────────────────────────────────────────────┐    │
-│  │              Optimization Orchestrator                │    │
-│  └───┬──────────────────────────────────────────────┬───┘    │
+│  ┌──────────────────────────────────────────────────────┐     │
+│  │              Optimization Orchestrator               │     │
+│  └───┬──────────────────────────────────────────────┬───┘     │
 │      │                                              │         │
-│  ┌───▼─────────────┐                        ┌──────▼──────┐  │
-│  │  Problem        │                        │   Metrics   │  │
-│  │  Analyzer       │                        │  Collector  │  │
-│  └───┬─────────────┘                        └─────────────┘  │
+│  ┌───▼─────────────┐                        ┌──────▼──────┐   │
+│  │  Problem        │                        │   Metrics   │   │
+│  │  Analyzer       │                        │  Collector  │   │
+│  └───┬─────────────┘                        └─────────────┘   │
 │      │                                                        │
-│  ┌───▼─────────────────────────────────────────────┐         │
-│  │          Quantum Router                        │         │
-│  │  (ML-based routing decision engine)            │         │
-│  └───┬──────────────────────────────┬─────────────┘         │
-└──────┼──────────────────────────────┼───────────────────────┘
-       │                              │
-   ┌───▼────────┐               ┌─────▼──────────┐
-   │ Classical  │               │    Quantum     │
-   │ Solvers    │               │    Solvers     │
-   ├────────────┤               ├────────────────┤
-   │• Greedy ✅ │               │• QAOA ✅       │
-   │• SimAnneal✅│               │• VQE ✅        │
-   │• OR-Tools✅│               │• PennyLane ✅  │
-   │• SciPy ✅  │               │• IBM Quantum🚧│
-   │• Gurobi 🚧│               │• AWS Braket 🚧│
-   │• NetworkX🚧│               │• Rotonium QPU🚧│
-   └────────────┘               └────────────────┘
-                                   ┌──────────────┐
-                                   │   Hybrid     │
-                                   │   Solvers ✅ │
-                                   └──────────────┘
-                                        │
-                                ┌───────▼────────┐
-                                │   PostgreSQL   │
-                                │   (Metrics &   │
-                                │   Job History) │
-                                └────────────────┘
+│  ┌───▼─────────────────────────────────────────────────────┐  │
+│  │          Quantum Router                                 │  │
+│  │  (ML-based routing decision engine)                     │  │
+│  └───┬─────────────────────┬─────────────────────┬─────────┘  │
+└──────┼─────────────────────┼─────────────────────┼────────────┘
+       │                     │                     │
+   ┌───▼────────┐      ┌─────▼──────────┐   ┌──────▼───────┐
+   │ Classical  │      │    Quantum     │   │   Hybrid     │
+   │ Solvers    │      │    Solvers     │   │   Solvers ✅ │
+   ├────────────┤      ├────────────────┤   └──────────────┘
+   │• Greedy ✅ │      │• QAOA ✅       │          │
+   │• SimAnneal✅│     │• VQE ✅        │  ┌───────▼────────┐
+   │• OR-Tools✅│      │• PennyLane ✅  │  │   PostgreSQL   │
+   │• SciPy ✅  │      │• IBM Quantum🚧 │  │   (Metrics &   │
+   │• Gurobi 🚧 │      │• AWS Braket 🚧 │  │   Job History) │
+   │• NetworkX🚧│      │• Rotonium QPU🚧│  └────────────────┘
+   └────────────┘      └────────────────┘
 ```
 
 ### Component Descriptions
@@ -371,7 +361,7 @@ result = solver.submit_job(problem)
 | **Power Consumption** | <100W | 10-25 kW (incl. cooling) |
 | **Size (SWaP)** | Rack-mountable (2U-4U) | Building-sized infrastructure |
 | **Deployment Speed** | Minutes | Days to weeks |
-| **Edge Suitability** | ✅ Excellent | ❌ Impractical |
+| **Edge Suitability** | Excellent | Impractical |
 | **Maintenance** | Minimal | Complex cryogenic systems |
 
 For detailed integration guide, see [**docs/rotonium-integration.md**](docs/rotonium-integration.md)
@@ -400,17 +390,12 @@ Run these demos on the interactive dashboard at http://localhost:8501
 The Streamlit dashboard includes pre-configured demo scenarios that automatically populate the problem submission form:
 
 1. **Navigate to "Submit Problem" page**
-2. **Select a demo scenario** from the dropdown (e.g., "AEROSPACE_ROUTING", "FINANCIAL_PORTFOLIO", "ML_GRAPH_PARTITION")
+2. **Select a demo scenario** from the dropdown (e.g., "AEROSPACE_ROUTING", "FINANCIAL_PORTFOLIO", "ML_GRAPH_PARTITION",..)
 3. **Click "Load Demo"** - Form fields will be populated with demo data
 4. **Optional:** Modify any parameters as needed (form will remember your changes)
 5. **Click "🚀 Submit Job"** to run the problem
 6. **Click "Clear Demo"** to reset to default values
 
-**Features:**
-- ✅ Demo data automatically populates form fields
-- ✅ Manual edits override demo settings
-- ✅ Job submission requires explicit button click
-- ✅ Visual indicators show when demo is active
 
 ### Rotonium Scenarios (Edge)
 
@@ -599,7 +584,8 @@ make test-cov
 
 ### Running Benchmarks
 
-The project includes a standalone benchmark script for comprehensive performance analysis of classical vs quantum solvers. This is **not** part of the pytest suite but a separate utility for detailed solver comparison.
+The project includes a standalone benchmark script for comprehensive performance analysis of classical vs quantum solvers. 
+This is **not** part of the pytest suite but a separate utility for detailed solver comparison.
 
 ```bash
 # Run benchmark with default settings
@@ -729,43 +715,6 @@ energy_rotonium = (
 ```
 
 ### Database Schema
-
-PostgreSQL schema for metrics and job tracking:
-
-```sql
--- Jobs table
-CREATE TABLE jobs (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    problem_type VARCHAR(50) NOT NULL,
-    solver_type VARCHAR(50) NOT NULL,
-    status VARCHAR(20) NOT NULL,
-    created_at TIMESTAMP DEFAULT NOW(),
-    completed_at TIMESTAMP,
-    metadata JSONB
-);
-
--- Metrics table
-CREATE TABLE metrics (
-    id SERIAL PRIMARY KEY,
-    job_id UUID REFERENCES jobs(id),
-    execution_time_seconds FLOAT,
-    memory_usage_mb FLOAT,
-    energy_consumed_joules FLOAT,
-    solution_quality FLOAT,
-    objective_value FLOAT,
-    recorded_at TIMESTAMP DEFAULT NOW()
-);
-
--- Problem features table
-CREATE TABLE problem_features (
-    id SERIAL PRIMARY KEY,
-    job_id UUID REFERENCES jobs(id),
-    num_qubits INT,
-    graph_density FLOAT,
-    connectivity FLOAT,
-    features JSONB
-);
-```
 
 For detailed schema and indexing strategy, see `database/init.sql`.
 
