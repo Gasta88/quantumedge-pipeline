@@ -7,8 +7,8 @@ src/solvers/quantum_hardware_interface.py, this interface operates at the
 job/problem level and is driven by company profiles.
 
 Implementations:
-    - RotoniumMockBackend: Simulated photonic QPU (OAM encoding, edge-optimised)
-    - QuiXCloudBackend: Real QuiX Quantum cloud API client
+    - PhotonicMockBackend: Simulated photonic QPU (OAM encoding, edge-optimised)
+    - PhotonicCloudBackend: Real photonic cloud API client
 """
 
 from abc import ABC, abstractmethod

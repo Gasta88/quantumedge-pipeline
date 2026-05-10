@@ -7,12 +7,12 @@ in various real-world contexts.
 
 Scenarios are split by company profile:
 
-Rotonium (edge):
+Edge Photonics (edge):
     1. AEROSPACE_ROUTING: UAV path planning under power constraints
     2. FINANCIAL_PORTFOLIO: Real-time portfolio rebalancing at the edge
     3. ML_GRAPH_PARTITION: Distributed ML training graph partitioning
 
-QuiX Quantum (datacenter):
+Data Center Photonics (datacenter):
     1. PHARMA_OPTIMIZATION: Drug discovery molecular sampling
     2. PORTFOLIO_RISK: Financial risk modelling
     3. HYDROLOGY: Water-network flow optimisation
@@ -26,7 +26,7 @@ Each scenario includes:
 Usage:
 -----
 >>> from dashboard.demo_scenarios import get_scenarios_for_profile, load_demo_scenario
->>> scenarios = get_scenarios_for_profile("rotonium")
+>>> scenarios = get_scenarios_for_profile("edge")
 >>> scenario_data = load_demo_scenario('AEROSPACE_ROUTING')
 >>> print(scenario_data['description'])
 """
@@ -59,7 +59,7 @@ DEMO_SCENARIOS: Dict[str, Dict[str, Any]] = {
         "edge_profile": "aerospace",
         "strategy": "energy",
         "comparative_mode": True,
-        "company_profile": "rotonium",
+        "company_profile": "edge",
         "context": """
         **Real-World Application: Autonomous UAV Fleet Coordination**
         
@@ -101,7 +101,7 @@ DEMO_SCENARIOS: Dict[str, Dict[str, Any]] = {
         "edge_profile": "ground_server",
         "strategy": "quality",
         "comparative_mode": True,
-        "company_profile": "rotonium",
+        "company_profile": "edge",
         "context": """
         **Real-World Application: Edge-Based Trading Systems**
         
@@ -148,7 +148,7 @@ DEMO_SCENARIOS: Dict[str, Dict[str, Any]] = {
         "edge_profile": "mobile",
         "strategy": "balanced",
         "comparative_mode": True,
-        "company_profile": "rotonium",
+        "company_profile": "edge",
         "context": """
         **Real-World Application: Federated ML Training**
         
@@ -184,7 +184,7 @@ DEMO_SCENARIOS: Dict[str, Dict[str, Any]] = {
         },
     },
     # =========================================================================
-    # QuiX Quantum Scenarios (Data Center)
+    # Data Center Photonics Scenarios (Data Center)
     # =========================================================================
     "PHARMA_OPTIMIZATION": {
         "name": "Drug Discovery Sampling",
@@ -195,15 +195,15 @@ DEMO_SCENARIOS: Dict[str, Dict[str, Any]] = {
         "edge_profile": "ground_server",
         "strategy": "quality",
         "comparative_mode": True,
-        "company_profile": "quix",
+        "company_profile": "datacenter",
         "context": """
-        **Real-World Application: Drug Discovery with QuiX Quantum**
+        **Real-World Application: Drug Discovery**
 
         Pharmaceutical companies need to explore molecular energy landscapes
         efficiently to identify promising drug candidates. The MaxCut formulation
         maps molecular interaction graphs to find optimal conformations.
 
-        QuiX Quantum's silicon-nitride photonic processor provides:
+        Photonic processors provide:
         - High-fidelity quantum sampling (>99% circuit fidelity)
         - Data-center integration via standard rack mounting
         - No cryogenic overhead — lower total cost of ownership
@@ -232,15 +232,15 @@ DEMO_SCENARIOS: Dict[str, Dict[str, Any]] = {
         "edge_profile": "ground_server",
         "strategy": "balanced",
         "comparative_mode": True,
-        "company_profile": "quix",
+        "company_profile": "datacenter",
         "context": """
-        **Real-World Application: Financial Risk with QuiX Quantum**
+        **Real-World Application: Financial Risk**
 
         Financial institutions model portfolio risk by sampling correlated asset
-        returns. Quantum sampling on QuiX's photonic processor provides potential
+        returns. Quantum sampling on photonic processors provides potential
         quadratic speed-up for Monte Carlo methods.
 
-        Running from a standard data-center rack, the QuiX quantum blade
+        Running from a standard data-center rack, the photonic quantum blade
         integrates alongside existing risk infrastructure with minimal overhead.
 
         **Expected Outcome:**
@@ -267,20 +267,20 @@ DEMO_SCENARIOS: Dict[str, Dict[str, Any]] = {
         "edge_profile": "ground_server",
         "strategy": "balanced",
         "comparative_mode": True,
-        "company_profile": "quix",
+        "company_profile": "datacenter",
         "context": """
-        **Real-World Application: Hydrology with QuiX Quantum**
+        **Real-World Application: Hydrology**
 
-        Deltares and QuiX Quantum collaborate on quantum modelling solutions
+        Water management organisations use quantum modelling solutions
         for water management and infrastructure. The MaxCut formulation
         partitions drainage networks to optimise pump-station activation.
 
-        Cloud-hosted QuiX quantum instances enable on-demand access to
+        Cloud-hosted photonic quantum instances enable on-demand access to
         photonic quantum hardware for research simulations.
 
         **Expected Outcome:**
         Balanced strategy on cloud node evaluates cost/quality trade-off,
-        leveraging QuiX cloud API for real quantum hardware results.
+        leveraging quantum cloud API for real quantum hardware results.
         """,
         "expected_routing": {
             "preferred_solver": "mixed",
@@ -288,7 +288,7 @@ DEMO_SCENARIOS: Dict[str, Dict[str, Any]] = {
             "key_factors": [
                 "Cloud node has moderate resource constraints",
                 "45 nodes with sparse graph favours quantum approaches",
-                "Real-world collaboration between Deltares and QuiX",
+                "Real-world water management application",
                 "PUE model accounts for cloud infrastructure overhead",
             ],
         },
@@ -497,9 +497,9 @@ def get_scenarios_for_profile(profile_name: str) -> Dict[str, Dict[str, Any]]:
     Return only the demo scenarios that match a given company profile.
 
     Args:
-        profile_name: 'rotonium', 'quix', or any custom profile name.
-                      Case-insensitive partial match is used (e.g. 'quix'
-                      matches company_profile='quix').
+        profile_name: 'edge', 'datacenter', or any custom profile name.
+                      Case-insensitive partial match is used (e.g. 'edge'
+                      matches company_profile='edge').
 
     Returns:
         Filtered dict of scenario_name -> scenario_config.
@@ -508,7 +508,7 @@ def get_scenarios_for_profile(profile_name: str) -> Dict[str, Dict[str, Any]]:
     return {
         name: scenario
         for name, scenario in DEMO_SCENARIOS.items()
-        if scenario.get("company_profile", "rotonium").lower() == profile_lower
+        if scenario.get("company_profile", "edge").lower() == profile_lower
     }
 
 
@@ -518,7 +518,7 @@ def load_scenario_from_json(json_path: str) -> Optional[Dict[str, Any]]:
 
     Args:
         json_path: Relative path from project root, e.g.
-                   'examples/scenarios/quix/pharma_optimization.json'
+                   'examples/scenarios/datacenter/pharma_optimization.json'
 
     Returns:
         Parsed scenario dict, or None if file not found.

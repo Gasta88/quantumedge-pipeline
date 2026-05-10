@@ -22,13 +22,13 @@ from src.profile_loader import (
 class TestLoadProfile:
     """Tests for load_profile()."""
 
-    def test_load_rotonium_profile(self):
-        """Load rotonium profile and verify all fields."""
-        profile = load_profile("rotonium")
+    def test_load_edge_profile(self):
+        """Load edge profile and verify all fields."""
+        profile = load_profile("edge")
 
-        assert profile.name == "Rotonium"
-        assert profile.tagline == "Edge Quantum Computing - OAM Photonic QPU"
-        assert profile.hardware_backend == "rotonium_mock"
+        assert profile.name == "Edge Photonics"
+        assert profile.tagline == "Edge Quantum Computing - Photonic QPU"
+        assert profile.hardware_backend == "photonic_mock"
         assert profile.deployment_profiles.primary == "aerospace"
         assert "aerospace" in profile.deployment_profiles.available
         assert "mobile" in profile.deployment_profiles.available
@@ -39,14 +39,14 @@ class TestLoadProfile:
         assert profile.energy_model.label == "Battery Budget Used"
         assert profile.energy_model.warn_threshold_pct == 80
         assert len(profile.demo_scenarios) == 3
-        assert profile.docs.integration == "docs/rotonium-integration.md"
+        assert profile.docs.integration == "docs/edge-integration.md"
 
-    def test_load_quix_profile(self):
-        """Load quix profile and verify all fields."""
-        profile = load_profile("quix")
+    def test_load_datacenter_profile(self):
+        """Load datacenter profile and verify all fields."""
+        profile = load_profile("datacenter")
 
-        assert profile.name == "QuiX Quantum"
-        assert profile.hardware_backend == "quix_cloud"
+        assert profile.name == "Data Center Photonics"
+        assert profile.hardware_backend == "photonic_cloud"
         assert profile.deployment_profiles.primary == "hpc_cluster"
         assert "hpc_cluster" in profile.deployment_profiles.available
         assert "datacenter_rack" in profile.deployment_profiles.available
@@ -57,17 +57,17 @@ class TestLoadProfile:
         assert profile.energy_model.framing == "PUE"
         assert profile.energy_model.warn_threshold_pct == 90
         assert len(profile.demo_scenarios) == 3
-        assert profile.docs.integration == "docs/quix-integration.md"
+        assert profile.docs.integration == "docs/datacenter-integration.md"
 
     def test_load_default_profile(self):
-        """Default profile should match Rotonium behaviour."""
+        """Default profile should match Edge Photonics behaviour."""
         default = load_profile("default")
-        rotonium = load_profile("rotonium")
+        edge = load_profile("edge")
 
-        assert default.name == rotonium.name
-        assert default.hardware_backend == rotonium.hardware_backend
-        assert default.deployment_profiles.primary == rotonium.deployment_profiles.primary
-        assert default.energy_model.framing == rotonium.energy_model.framing
+        assert default.name == "QuantumEdge"
+        assert default.hardware_backend == edge.hardware_backend
+        assert default.deployment_profiles.primary == edge.deployment_profiles.primary
+        assert default.energy_model.framing == edge.energy_model.framing
 
     def test_invalid_profile_name(self):
         """Non-existent profile should raise FileNotFoundError."""
@@ -94,12 +94,12 @@ class TestLoadProfile:
 
     def test_profile_returns_company_profile_type(self):
         """Returned object should be a CompanyProfile instance."""
-        profile = load_profile("rotonium")
+        profile = load_profile("edge")
         assert isinstance(profile, CompanyProfile)
 
     def test_demo_scenarios_have_name_and_file(self):
         """Every demo scenario must have a name and file path."""
-        for profile_name in ("rotonium", "quix"):
+        for profile_name in ("edge", "datacenter"):
             profile = load_profile(profile_name)
             for scenario in profile.demo_scenarios:
                 assert scenario.name, f"Scenario in {profile_name} missing name"
@@ -139,15 +139,15 @@ class TestResolveProfileName:
 
     def test_env_var_override(self):
         """QUANTUMEDGE_PROFILE env var should be respected."""
-        with patch.dict(os.environ, {"QUANTUMEDGE_PROFILE": "quix"}):
+        with patch.dict(os.environ, {"QUANTUMEDGE_PROFILE": "datacenter"}):
             with patch("sys.argv", ["app"]):
-                assert resolve_profile_name() == "quix"
+                assert resolve_profile_name() == "datacenter"
 
     def test_cli_arg_override(self):
         """--profile CLI arg should take precedence over env var."""
-        with patch.dict(os.environ, {"QUANTUMEDGE_PROFILE": "rotonium"}):
-            with patch("sys.argv", ["app", "--profile", "quix"]):
-                assert resolve_profile_name() == "quix"
+        with patch.dict(os.environ, {"QUANTUMEDGE_PROFILE": "edge"}):
+            with patch("sys.argv", ["app", "--profile", "datacenter"]):
+                assert resolve_profile_name() == "datacenter"
 
     def test_default_fallback(self):
         """Without CLI or env var, should return 'default'."""
@@ -176,23 +176,23 @@ class TestActiveProfile:
 
     def test_set_active_profile(self):
         """set_active_profile should load and cache the profile."""
-        profile = set_active_profile("quix")
-        assert profile.name == "QuiX Quantum"
+        profile = set_active_profile("datacenter")
+        assert profile.name == "Data Center Photonics"
         # Subsequent get should return same object
         assert get_active_profile() is profile
 
     def test_get_active_profile_default(self):
         """get_active_profile without set should auto-resolve."""
         with patch("sys.argv", ["app"]):
-            with patch.dict(os.environ, {"QUANTUMEDGE_PROFILE": "rotonium"}):
+            with patch.dict(os.environ, {"QUANTUMEDGE_PROFILE": "edge"}):
                 profile = get_active_profile()
-                assert profile.name == "Rotonium"
+                assert profile.name == "Edge Photonics"
 
     def test_reset_clears_cache(self):
         """reset_active_profile should clear the singleton."""
-        set_active_profile("quix")
+        set_active_profile("datacenter")
         reset_active_profile()
         with patch("sys.argv", ["app"]):
-            with patch.dict(os.environ, {"QUANTUMEDGE_PROFILE": "rotonium"}):
+            with patch.dict(os.environ, {"QUANTUMEDGE_PROFILE": "edge"}):
                 profile = get_active_profile()
-                assert profile.name == "Rotonium"
+                assert profile.name == "Edge Photonics"

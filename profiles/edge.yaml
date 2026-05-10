@@ -1,11 +1,11 @@
-# Rotonium Company Profile
-# Edge Quantum Computing - OAM Photonic QPU
+# Edge Photonics Profile
+# Edge Quantum Computing - Photonic QPU
 # Target: Aerospace, mobile, and ground-station edge deployments
 
-name: "Rotonium"
-tagline: "Edge Quantum Computing - OAM Photonic QPU"
+name: "Edge Photonics"
+tagline: "Edge Quantum Computing - Photonic QPU"
 
-hardware_backend: "rotonium_mock"
+hardware_backend: "photonic_mock"
 
 deployment_profiles:
   primary: "aerospace"
@@ -26,12 +26,12 @@ energy_model:
 
 demo_scenarios:
   - name: "UAV Path Planning"
-    file: "examples/scenarios/rotonium/aerospace_routing.json"
+    file: "examples/scenarios/edge/aerospace_routing.json"
   - name: "Satellite Orbit Optimization"
-    file: "examples/scenarios/rotonium/satellite_optimization.json"
+    file: "examples/scenarios/edge/satellite_optimization.json"
   - name: "Edge AI Acceleration"
-    file: "examples/scenarios/rotonium/edge_ai.json"
+    file: "examples/scenarios/edge/edge_ai.json"
 
 docs:
-  integration: "docs/rotonium-integration.md"
-  pitch_focus: "Edge deployment, aerospace, NATO DIANA relevance"
+  integration: "docs/edge-integration.md"
+  pitch_focus: "Edge deployment, aerospace, low-power operations"

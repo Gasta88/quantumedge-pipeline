@@ -9,7 +9,7 @@ Welcome to the world of quantum computing! This guide will help you understand t
 1. [Classical vs Quantum Computing](#1-classical-vs-quantum-computing)
 2. [Quantum Gates](#2-quantum-gates)
 3. [Quantum Algorithms for Optimization](#3-quantum-algorithms-for-optimization)
-4. [Photonic Quantum Computing (Rotonium's Approach)](#4-photonic-quantum-computing-rotoniums-approach)
+4. [Photonic Quantum Computing](#4-photonic-quantum-computing)
 5. [Quantum Simulators vs Real Hardware](#5-quantum-simulators-vs-real-hardware)
 
 ---
@@ -426,15 +426,15 @@ Quality
 
 ---
 
-## 4. Photonic Quantum Computing (Rotonium's Approach)
+## 4. Photonic Quantum Computing
 
 ### Why Photons?
 
-Most quantum computers use **superconducting qubits** (like Google and IBM). Rotonium uses **photonic qubits** - photons of light!
+Most quantum computers use **superconducting qubits** (like Google and IBM). Photonic quantum computers use **photonic qubits** - photons of light!
 
 **Comparison:**
 
-| Feature | Superconducting | Photonic (Rotonium) |
+| Feature | Superconducting | Photonic |
 |---------|----------------|---------------------|
 | Temperature | ~0.01 K (near absolute zero) | Room temperature! |
 | Qubit | Artificial atom in circuit | Photon of light |
@@ -449,7 +449,7 @@ Most quantum computers use **superconducting qubits** (like Google and IBM). Rot
 - Has properties we can use as qubits:
   * Polarization (horizontal/vertical)
   * Path (which route it takes)
-  * **OAM (Orbital Angular Momentum)** ← Rotonium's approach
+  * **OAM (Orbital Angular Momentum)** ← Our approach
 
 ### OAM (Orbital Angular Momentum) Encoding
 
@@ -531,7 +531,7 @@ Size: Smaller (potentially)
 - More portable (edge computing!)
 - Can integrate with existing optical infrastructure
 
-### How Rotonium's System Works
+### How Photonic Quantum Systems Work
 
 **High-Level Architecture:**
 ```
@@ -649,7 +649,7 @@ result = circuit()
 **Features:**
 - Differentiable circuits (for optimization)
 - Integration with ML frameworks (PyTorch, TensorFlow)
-- Photonic simulation: Matches Rotonium's approach
+- Photonic simulation: Matches photonic QPU approach
 - Hybrid quantum-classical optimization
 
 ### Limitations of Simulation
@@ -848,7 +848,7 @@ Need to test on target hardware
 - Uses **photons** instead of superconducting circuits
 - **OAM encoding**: High-dimensional qubits
 - **Room temperature**: Easier deployment
-- Rotonium's approach for QuantumEdge
+- Photonic approach for QuantumEdge
 
 ### Simulators vs Hardware
 - **Simulators**: Good for n ≤ 25 qubits, development, testing

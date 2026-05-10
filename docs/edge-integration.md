@@ -1,4 +1,4 @@
-#  Rotonium Integration Guide
+# Photonic QPU Integration Guide
 
 ## Table of Contents
 1. [Current Implementation](#current-implementation)
@@ -12,7 +12,7 @@
 
 ### Overview
 
-The QuantumEdge Pipeline currently implements a **photonic quantum processing simulator** that models the unique characteristics and advantages of Rotonium's room-temperature photonic QPU technology. This simulation layer allows developers, customers, and partners to:
+The QuantumEdge Pipeline currently implements a **photonic quantum processing simulator** that models the unique characteristics and advantages of photonic quantum processor technology. This simulation layer allows developers, customers, and partners to:
 
 - Evaluate quantum-classical hybrid workflows before hardware is available
 - Benchmark performance against cryogenic quantum systems
@@ -28,7 +28,7 @@ The simulator is built as a specialized quantum solver that extends standard qua
 
 class PhotonicQuantumSolver(QuantumSolver):
     """
-    Simulates Rotonium's photonic quantum processor with:
+    Simulates photonic quantum processor with:
     - Room temperature operation (no cryogenic overhead)
     - OAM (Orbital Angular Momentum) encoding capabilities
     - Photonic gate fidelities and noise models
@@ -65,7 +65,7 @@ class PhotonicQuantumSolver(QuantumSolver):
             energy_consumed=energy_consumed,
             fidelity=result.fidelity,
             metadata={
-                'backend': 'rotonium_photonic_simulator',
+                'backend': 'photonic_qpu_simulator',
                 'operating_temp': self.operating_temp,
                 'oam_encoding': self.oam_encoding
             }
@@ -175,7 +175,7 @@ def calculate_edge_suitability(solver: Solver, constraints: EdgeConstraints) -> 
 
 | Solver Type | Power Score | Size Score | Deploy Score | Mobility | **Total** |
 |-------------|-------------|------------|--------------|----------|-----------|
-| Rotonium Photonic | 1.0 | 1.0 | 1.0 | 1.0 | **1.00** ✅ |
+| Photonic QPU | 1.0 | 1.0 | 1.0 | 1.0 | **1.00** ✅ |
 | IBM Quantum (Cryo) | 0.01 | 0.001 | 0.1 | 0.0 | **0.01** |
 | Classical (GPU) | 0.8 | 0.9 | 0.95 | 0.85 | **0.88** |
 
@@ -247,7 +247,7 @@ class PhotonicEnergyProfile:
 
 | System | Idle Power | Execution Time | Energy Consumed | Cost |
 |--------|------------|----------------|-----------------|------|
-| **Rotonium Photonic** | 55W | 10s | **550 J** | $0.00002 |
+| **Photonic QPU** | 55W | 10s | **550 J** | $0.00002 |
 | **IBM Quantum (Cryo)** | 15 kW | 10s | 150,000 J | $0.005 |
 | **Savings** | **273x** | — | **272x** | **250x** |
 
@@ -257,13 +257,13 @@ class PhotonicEnergyProfile:
 
 ### API Endpoints Needed for Real QPU
 
-To transition from simulation to real Rotonium hardware, the following API integration is required:
+To transition from simulation to real photonic QPU hardware, the following API integration is required:
 
 #### 2.1 Job Submission Endpoint
 
 ```http
-POST https://api.rotonium.com/v1/qpu/jobs/submit
-Authorization: Bearer {ROTONIUM_API_KEY}
+POST https://api.photonic-qpu.com/v1/qpu/jobs/submit
+Authorization: Bearer {PHOTONIC_QPU_API_KEY}
 Content-Type: application/json
 
 {
@@ -272,7 +272,7 @@ Content-Type: application/json
     "data": "OPENQASM 2.0; include \"qelib1.inc\"; ..."
   },
   "device": {
-    "qpu_id": "rotonium_photonic_v1",
+    "qpu_id": "photonic_qpu_v1",
     "num_qubits": 12,
     "topology": "fully_connected"  // or specific connectivity map
   },
@@ -288,7 +288,7 @@ Content-Type: application/json
 **Response:**
 ```json
 {
-  "job_id": "rotonium_job_abc123",
+  "job_id": "photonic_job_abc123",
   "status": "queued",
   "estimated_wait_time_seconds": 45,
   "queue_position": 3,
@@ -299,14 +299,14 @@ Content-Type: application/json
 #### 2.2 Job Status and Results Endpoint
 
 ```http
-GET https://api.rotonium.com/v1/qpu/jobs/{job_id}
-Authorization: Bearer {ROTONIUM_API_KEY}
+GET https://api.photonic-qpu.com/v1/qpu/jobs/{job_id}
+Authorization: Bearer {PHOTONIC_QPU_API_KEY}
 ```
 
 **Response:**
 ```json
 {
-  "job_id": "rotonium_job_abc123",
+  "job_id": "photonic_job_abc123",
   "status": "completed",
   "submitted_at": "2025-01-05T13:45:00Z",
   "started_at": "2025-01-05T13:46:15Z",
@@ -319,11 +319,11 @@ Authorization: Bearer {ROTONIUM_API_KEY}
       "1111": 456,
       ...
     },
-    "raw_data_url": "https://storage.rotonium.com/jobs/abc123/raw_data.hdf5",
+    "raw_data_url": "https://storage.photonic-qpu.com/jobs/abc123/raw_data.hdf5",
     "fidelity_estimate": 0.962
   },
   "device_metadata": {
-    "qpu_id": "rotonium_photonic_v1",
+    "qpu_id": "photonic_qpu_v1",
     "qubits_used": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
     "calibration_timestamp": "2025-01-05T12:00:00Z",
     "gate_fidelities": { ... },
@@ -337,14 +337,14 @@ Authorization: Bearer {ROTONIUM_API_KEY}
 #### 2.3 Device Calibration Endpoint
 
 ```http
-GET https://api.rotonium.com/v1/qpu/devices/{device_id}/calibration
-Authorization: Bearer {ROTONIUM_API_KEY}
+GET https://api.photonic-qpu.com/v1/qpu/devices/{device_id}/calibration
+Authorization: Bearer {PHOTONIC_QPU_API_KEY}
 ```
 
 **Response:**
 ```json
 {
-  "device_id": "rotonium_photonic_v1",
+  "device_id": "photonic_qpu_v1",
   "calibration_timestamp": "2025-01-05T12:00:00Z",
   "next_calibration": "2025-01-05T18:00:00Z",
   "qubits": {
@@ -404,7 +404,7 @@ measure q -> c;
 """
 ```
 
-#### Format 2: Photonic JSON (Rotonium Native)
+#### Format 2: Photonic JSON (Native)
 ```json
 {
   "photonic_circuit": {
@@ -435,7 +435,7 @@ measure q -> c;
 ```python
 import pennylane as qml
 
-dev = qml.device('rotonium.photonic', wires=4)
+dev = qml.device('photonic.qpu', wires=4)
 
 @qml.qnode(dev)
 def circuit():
@@ -444,8 +444,8 @@ def circuit():
     qml.CNOT(wires=[1, 2])
     return qml.probs(wires=[0, 1, 2, 3])
 
-# Export to Rotonium-compatible format
-circuit_export = qml.drawer.rotonium_export(circuit)
+# Export to photonic-compatible format
+circuit_export = qml.drawer.photonic_export(circuit)
 ```
 
 ### Calibration Data Integration
@@ -458,13 +458,13 @@ Real-time calibration data will be integrated into the routing decision:
 class HardwareAwareRouter(QuantumRouter):
     """Router with real-time hardware calibration awareness."""
     
-    def __init__(self, api_client: RotoniumAPIClient):
+    def __init__(self, api_client: PhotonicAPIClient):
         super().__init__()
         self.api_client = api_client
         self.calibration_cache_ttl = 300  # 5 minutes
     
     async def get_device_calibration(self, device_id: str) -> CalibrationData:
-        """Fetch latest calibration data from Rotonium API."""
+        """Fetch latest calibration data from Photonic QPU API."""
         response = await self.api_client.get_calibration(device_id)
         return CalibrationData.from_api_response(response)
     
@@ -518,7 +518,7 @@ class HardwareAwareRouter(QuantumRouter):
 The system will collect comprehensive metrics from real QPU execution:
 
 ```python
-# Metrics collected from Rotonium hardware
+# Metrics collected from photonic hardware
 hardware_metrics = {
     "execution": {
         "total_time_seconds": 12.3,
@@ -542,7 +542,7 @@ hardware_metrics = {
         "mitigated_fidelity": 0.962  # After mitigation
     },
     "device": {
-        "qpu_id": "rotonium_photonic_v1",
+        "qpu_id": "photonic_qpu_v1",
         "qubits_used": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
         "circuit_depth": 45,
         "gate_count": {
@@ -575,7 +575,7 @@ hardware_metrics = {
 └─────────────────────────────────────────────────┼───────────┘
                                                   │
                                   ┌───────────────▼───────────────┐
-                                  │  Rotonium Photonic QPU       │
+                                   │  Photonic QPU       │
                                   │  (Rack-mounted in TOC)       │
                                   │  - 100W power draw           │
                                   │  - Room temperature          │
@@ -610,53 +610,6 @@ hardware_metrics = {
 - Power consumption: 75W (vs 15kW for cryogenic)
 - Deployment time: <1 hour (vs weeks for cryogenic setup)
 
-### Defense & NATO DIANA Relevance
-
-#### NATO DIANA Innovation Challenge Areas
-
-Rotonium + QuantumEdge Pipeline addresses:
-
-1. **Emerging and Disruptive Technologies (EDTs)**
-   - Quantum computing for tactical edge computing
-   - AI/ML-accelerated decision-making
-   
-2. **Resilience and Energy**
-   - Low-power quantum computing for forward operating bases
-   - Energy-efficient optimization for logistics and supply chain
-
-3. **Secure Information Systems**
-   - Quantum key distribution integration readiness
-   - Secure multi-party optimization
-
-#### Defense Use Case: Supply Chain Optimization
-
-**Scenario**: NATO forward operating base optimizing supply delivery routes under threat.
-
-```
-Problem: Deliver supplies to 20 forward positions
-Constraints:
-  - Known threat zones (IEDs, hostile fire)
-  - Vehicle fuel limits
-  - Time-sensitive medical supplies
-  - Road quality/conditions
-  
-Solution:
-  1. Map to Vehicle Routing Problem (VRP)
-  2. Route to Rotonium QPU at FOB edge node
-  3. Solve in <30 seconds
-  4. Update routes as threat intel changes
-  
-Advantage over Classical:
-  - 40% better route quality (fewer threat exposures)
-  - 3x faster re-optimization (critical for dynamic threats)
-  - 250x lower power (can run on FOB generators)
-```
-
-**Strategic Value:**
-- Deployable to forward locations without infrastructure
-- Resilient to adversarial environments
-- Interoperable with NATO systems (REST API, standard interfaces)
-
 ### Mobile Edge Computing
 
 #### 5G/6G Network Optimization
@@ -673,7 +626,7 @@ Advantage over Classical:
 └───────────────────────────────────────────────┼───────────────────┘
                                                 │
                         ┌───────────────────────▼───────────────────┐
-                        │  Rotonium QPU (Mobile Edge Node)         │
+                        │  Photonic QPU (Mobile Edge Node)         │
                         │  Co-located with 5G base stations        │
                         └───────────────────────┬───────────────────┘
                                                 │
@@ -690,7 +643,7 @@ Advantage over Classical:
 - Minimize: latency, congestion, handovers
 - Constraints: tower capacity, signal strength, QoS requirements
 
-**Rotonium Advantage:**
+**Photonic Advantage:**
 - Edge deployment (low latency for real-time optimization)
 - Scales to metro-area networks
 - Power-efficient (critical for edge data centers)
@@ -699,7 +652,7 @@ Advantage over Classical:
 
 #### Use Case: International Space Station (ISS) Experiment
 
-**Vision**: Deploy Rotonium photonic QPU on ISS for space-based quantum computing research.
+**Vision**: Deploy photonic QPU on ISS for space-based quantum computing research.
 
 **Advantages in Space:**
 1. **No Cryogenics Required**: Eliminates complex cooling systems
@@ -720,7 +673,7 @@ Advantage over Classical:
 
 ### Room Temperature vs Cryogenic Comparison
 
-| Dimension | Rotonium (Photonic) | IBM/Google (Superconducting) | Rigetti/IonQ (Trapped Ion) |
+| Dimension | Photonic QPU | IBM/Google (Superconducting) | Rigetti/IonQ (Trapped Ion) |
 |-----------|---------------------|-------------------------------|----------------------------|
 | **Operating Temperature** | 20°C (Room Temp) | 0.015K (~Absolute Zero) | 4K (Liquid Helium) |
 | **Cooling System** | Air cooling (fans) | Dilution refrigerator | Cryogenic refrigerator |
@@ -743,11 +696,11 @@ Critical for:
 - Mobile edge computing
 - Space missions
 
-**Rotonium's SWaP Profile:**
+**Photonic QPU SWaP Profile:**
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  Rotonium Photonic QPU (2U Rack Mount)                      │
+│  Photonic QPU (2U Rack Mount)                      │
 │                                                              │
 │  Size:   88 mm (H) × 483 mm (W) × 500 mm (D)               │
 │  Weight: 25 kg                                              │
@@ -856,7 +809,7 @@ The pipeline supports **quantum-classical hybrid workflows** optimized for edge:
 ```
 1. Classical Preprocessing (Edge)
    ↓
-2. Quantum Kernel (Rotonium QPU at Edge)
+ 2. Quantum Kernel (Photonic QPU at Edge)
    ↓
 3. Classical Postprocessing (Edge)
    ↓
@@ -874,8 +827,8 @@ reduced_problem = classical_pca_reduction(
     target_assets=20  # Reduce from 100 to 20 assets
 )
 
-# Step 2: Quantum optimization (QAOA on Rotonium QPU)
-quantum_solution = rotonium_qpu.solve_qaoa(
+# Step 2: Quantum optimization (QAOA on Photonic QPU)
+quantum_solution = photonic_qpu.solve_qaoa(
     problem=reduced_problem,
     layers=3,
     shots=1000
@@ -908,7 +861,7 @@ refined_solution = local_search_refinement(
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│                     Rotonium Ecosystem Integration                   │
+│                     Photonic QPU Ecosystem Integration                   │
 └──────────────────────────────────────────────────────────────────────┘
                                     │
                  ┌──────────────────┼──────────────────┐
@@ -936,14 +889,14 @@ refined_solution = local_search_refinement(
                  ┌──────────────────┼──────────────────┐
                  │                  │                  │
        ┌─────────▼────────┐  ┌──────▼─────────┐  ┌────▼────────────┐
-       │ Classical Solvers│  │ Photonic Sim.   │  │ Rotonium QPU    │
+        │ Classical Solvers│  │ Photonic Sim.   │  │ Photonic QPU    │
        │ (Gurobi, etc.)  │  │ (Current)       │  │ (Future)        │
        └──────────────────┘  └──────┬─────────┘  └────┬────────────┘
                                     │                  │
                                     └────────┬─────────┘
                                              │
                                  ┌───────────▼───────────┐
-                                 │  Rotonium Hardware    │
+                                  │  Photonic Hardware    │
                                  │  (Photonic QPU)       │
                                  │  - Room temperature   │
                                  │  - Edge-deployable    │
@@ -955,4 +908,4 @@ refined_solution = local_search_refinement(
 
 ## Summary
 
-The QuantumEdge Pipeline + Rotonium integration represents a **personal portfolio project** for bringing quantum computing to the edge:
+The QuantumEdge Pipeline + Photonic QPU integration represents a framework for bringing quantum computing to the edge:

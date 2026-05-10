@@ -144,7 +144,7 @@ class TestDatacenterEnvironment:
         assert info["profile"] == "hpc_cluster"
         assert "constraints" in info
         assert "pue_ratio" in info
-        assert "quix_advantage" in info
+        assert "photonic_advantage" in info
         assert info["pue_ratio"] == 1.2
 
     def test_thermal_headroom(self):

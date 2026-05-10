@@ -638,7 +638,7 @@ class Settings(BaseSettings):
     # Active company profile name (resolved by profile_loader)
     profile_name: Optional[str] = Field(
         default=None,
-        description="Active company profile (e.g. 'rotonium', 'quix'). "
+        description="Active company profile (e.g. 'edge', 'datacenter'). "
         "Set via QUANTUMEDGE_PROFILE env var or --profile CLI flag.",
         env="QUANTUMEDGE_PROFILE",
     )

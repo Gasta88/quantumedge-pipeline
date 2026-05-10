@@ -10,5 +10,5 @@
   "deployment_profile": "cloud_node",
   "strategy": "balanced",
   "comparative_mode": true,
-  "context": "Deltares and QuiX Quantum collaborate on quantum modelling for water management. The MaxCut formulation partitions drainage networks to optimise pump-station activation sequences, reducing flood risk while minimising energy usage via cloud-hosted QuiX quantum hardware."
+  "context": "Water management organisations use quantum modelling for water network optimization. The MaxCut formulation partitions drainage networks to optimise pump-station activation sequences, reducing flood risk while minimising energy usage via cloud-hosted photonic quantum hardware."
 }

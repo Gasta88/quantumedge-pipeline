@@ -8,7 +8,7 @@
 
 **QuantumEdge Pipeline** is a quantum-classical hybrid optimization framework designed specifically for **edge computing environments**. It routes computational workloads between classical and quantum solvers based on real-time problem analysis, resource constraints, and performance requirements.
 
-### Why It Matters (Dual Target Profiles)
+### Why It Matters (Deployment Profiles)
 
 Organizations need **practical tools** to evaluate, integrate, and deploy quantum solutions across very different environments. QuantumEdge Pipeline now supports multiple company targets via profile-driven configuration:
 
@@ -16,18 +16,6 @@ Organizations need **practical tools** to evaluate, integrate, and deploy quantu
 -  **Reducing integration time**: Provides APIs and workflows for quantum-classical hybrid systems with pluggable backends
 -  **Profile-aware architecture**: Optimized for the active deployment profile (edge SWaP vs. data-center PUE)
 -  **Hardware-agnostic design**: Seamlessly transitions from simulation to real quantum hardware through the new backend interface
-
-For **Rotonium**, this pipeline showcases how their photonic quantum processors can be integrated into edge deployments, particularly for:
-- NATO DIANA defense applications
-- Aerospace optimization (flight routing, trajectory planning)
-- Space-based quantum computing scenarios
-- Room-temperature quantum operations at the edge
-
-For **QuiX Quantum**, the pipeline highlights data-center and HPC integrations:
-- Pharma and drug discovery workloads that benefit from photonic sampling
-- Financial risk modeling within enterprise racks or cloud nodes
-- Hydrology and climate simulations co-located with HPC resources
-- Drop-in rack deployments leveraging silicon-nitride photonic processors
 
 ###  Key Features
 
@@ -39,27 +27,27 @@ For **QuiX Quantum**, the pipeline highlights data-center and HPC integrations:
 - **Real-Time Monitoring**: Comprehensive metrics, dashboards, and performance tracking
 - **Docker-First Deployment**: Complete containerized infrastructure for rapid deployment
 
-### Dual Target Profiles
+### Deployment Profiles
 
-The pipeline can now morph between company-specific configurations via **Target Profiles**:
+The pipeline can now morph between deployment configurations via **Deployment Profiles**:
 
 | Profile | Use Case | Backend | Energy Model | Demo Scenarios |
 |---------|----------|---------|--------------|----------------|
-| `rotonium` (default) | Edge, aerospace, defense | `rotonium_mock` (photonic simulator) | SWaP (battery budget) | UAV routing, satellite optimization, edge AI |
-| `quix` | HPC, data center, cloud | `quix_cloud` (real API + mock fallback) | PUE (data-center efficiency) | Pharma sampling, portfolio risk, hydrology |
+| `edge` (default) | Edge computing, mobile deployments | `edge_mock` (photonic simulator) | SWaP (battery budget) | UAV routing, satellite optimization, edge AI |
+| `datacenter` | HPC, data center, cloud | `datacenter_cloud` (real API + mock fallback) | PUE (data-center efficiency) | Molecular sampling, portfolio risk, network optimization |
 
 Select a profile via CLI or environment variable:
 
 ```bash
 # CLI flag (Streamlit)
-streamlit run dashboard/app.py -- --profile quix
+streamlit run dashboard/app.py -- --profile datacenter
 
 # Environment variable (API + dashboard + Docker)
-export QUANTUMEDGE_PROFILE=quix
-export QUIX_API_KEY="your-real-api-key"   # Optional; enables real hardware access
+export QUANTUMEDGE_PROFILE=datacenter
+export QUANTUM_CLOUD_API_KEY="your-real-api-key"   # Optional; enables real hardware access
 ```
 
-Profiles live in the new `profiles/` directory and are loaded by `src/profile_loader.py`. Each profile controls branding, deployment options, demo scenarios, docs links, and which backend implementation is instantiated.
+Profiles live in the new `profiles/` directory and are loaded by `src/profile_loader.py`. Each profile controls deployment options, demo scenarios, docs links, and which backend implementation is instantiated.
 
 ---
 
@@ -86,12 +74,12 @@ cd quantumedge-pipeline
 # 2. Copy environment configuration and configure it
 cp .env.example .env
 
-# 3. (Optional) Select company profile
-#    Choices: rotonium (default), quix
-export QUANTUMEDGE_PROFILE=quix
+# 3. (Optional) Select deployment profile
+#    Choices: edge (default), datacenter
+export QUANTUMEDGE_PROFILE=datacenter
 
-# Provide QuiX API key only if you have real hardware access
-# export QUIX_API_KEY=your-key
+# Provide cloud API key only if you have real hardware access
+# export QUANTUM_CLOUD_API_KEY=your-key
 
 # 4. Start all services with Docker Compose
 make up
@@ -117,8 +105,8 @@ Once services are running:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `QUANTUMEDGE_PROFILE` | `default` (Rotonium) | Selects the active company profile (`rotonium`, `quix`, or custom) |
-| `QUIX_API_KEY` | _empty_ | Optional. Enables real QuiX cloud hardware access; absent → mock mode |
+| `QUANTUMEDGE_PROFILE` | `default` (edge) | Selects the active deployment profile (`edge`, `datacenter`, or custom) |
+| `QUANTUM_CLOUD_API_KEY` | _empty_ | Optional. Enables real cloud hardware access; absent → mock mode |
 
 ---
 
@@ -163,7 +151,7 @@ Once services are running:
    │• OR-Tools✅│      │• PennyLane ✅  │  │   PostgreSQL   │
    │• SciPy ✅  │      │• IBM Quantum🚧 │  │   (Metrics &   │
    │• Gurobi 🚧 │      │• AWS Braket 🚧 │  │   Job History) │
-   │• NetworkX🚧│      │• Rotonium QPU🚧│  └────────────────┘
+    │• NetworkX🚧│      │• Photonic QPU🚧 │  └────────────────┘
    └────────────┘      └────────────────┘
 ```
 
@@ -207,11 +195,11 @@ Once services are running:
 - **Quantum Hardware Interfaces**: 
   - IBM Quantum (requires IBM Quantum account)
   - AWS Braket (requires AWS account)
-  - Rotonium QPU (requires Rotonium hardware access)
+   - Photonic QPU (requires hardware access)
 - **Quantum Algorithms**: 
   - Quantum Annealing on real hardware (D-Wave)
 
-**Note**: Abstract interfaces for IBM Quantum, AWS Braket, and Rotonium are provided in `src/solvers/quantum_hardware_interface.py` but require actual SDK integration and hardware access credentials.
+**Note**: Abstract interfaces for IBM Quantum, AWS Braket, and Photonic QPU are provided in `src/solvers/quantum_hardware_interface.py` but require actual SDK integration and hardware access credentials.
 
 #### 4. **Monitoring System** (`src/monitoring/`)
 - Tracks execution time, memory usage, energy consumption
@@ -225,13 +213,13 @@ Once services are running:
 - Comparative analysis endpoints
 - OpenAPI/Swagger documentation
 
-#### 6. **Target Profiles & Backends**
-- **Profiles** (`profiles/*.yaml`) describe company branding, deployment options, energy models, demo scenarios, and docs references
+#### 6. **Deployment Profiles & Backends**
+- **Profiles** (`profiles/*.yaml`) describe deployment branding, options, energy models, demo scenarios, and docs references
 - **Profile Loader** (`src/profile_loader.py`) resolves the active profile via `--profile` CLI flag or env var and validates it with Pydantic
 - **Backend Interface** (`src/backends/`) implements the new `QuantumBackend` ABC
-  - `RotoniumMockBackend`: Simulates photonic OAM hardware for edge deployments
-  - `QuiXCloudBackend`: Connects to the real QuiX API (or mock mode when no key is supplied)
-- **Datacenter Simulator** (`src/router/datacenter_simulator.py`) models HPC/rack/cloud resources and PUE-adjusted energy budgets for QuiX scenarios
+  - `EdgeMockBackend`: Simulates photonic OAM hardware for edge deployments
+  - `DatacenterCloudBackend`: Connects to the real cloud API (or mock mode when no key is supplied)
+- **Datacenter Simulator** (`src/router/datacenter_simulator.py`) models HPC/rack/cloud resources and PUE-adjusted energy budgets for datacenter scenarios
 
 ### Data Flow Explanation
 
@@ -280,11 +268,11 @@ See the complete guide: **[docs/usage-examples.md](docs/usage-examples.md)**
 
 ---
 
-##  Rotonium Integration
+##  Edge Photonic Integration
 
-### How This Supports Rotonium's Vision
+### How This Supports Edge Photonic Computing
 
-QuantumEdge Pipeline showcase and accelerate **Rotonium's photonic quantum processors** in edge computing scenarios. Key alignment:
+QuantumEdge Pipeline showcases and accelerates **photonic quantum processors** in edge computing scenarios. Key alignment:
 
 #### 1. **Photonic QPU Simulation**
 - **Room Temperature Operation**: Simulation models that reflect photonic quantum computing advantages
@@ -293,9 +281,9 @@ QuantumEdge Pipeline showcase and accelerate **Rotonium's photonic quantum proce
 - **Edge SWaP Optimization**: Designed for Size, Weight, and Power constrained environments
 
 #### 2. **Edge Deployment Focus**
-The pipeline demonstrates Rotonium's competitive advantage in:
+The pipeline demonstrates photonic computing's competitive advantage in:
 - **Aerospace Applications**: Flight path optimization, satellite constellation routing
-- **Defense & NATO DIANA**: Secure tactical optimization at the edge
+- **Defense Applications**: Secure tactical optimization at the edge
 - **Mobile Edge Computing**: 5G/6G network optimization with quantum acceleration
 - **Space-Based Computing**: Radiation-resistant, low-power quantum operations
 
@@ -308,14 +296,14 @@ from src.solvers.quantum_simulator import QuantumSimulator
 solver = QuantumSimulator(backend='default.qubit', shots=1024)
 result = solver.solve(problem, algorithm='qaoa')  # or 'vqe'
 
-# 🚧 Future: Rotonium Hardware (Abstract Interface Ready)
+# 🚧 Future: Photonic Hardware (Abstract Interface Ready)
 from src.solvers.quantum_hardware_interface import create_hardware_interface
 solver = create_hardware_interface(
-    'rotonium',
+    'photonic',
     api_key='your_api_key',
-    device='rotonium_photonic_qpu_v1'
+    device='photonic_qpu_v1'
 )
-# Note: Requires Rotonium SDK and hardware access credentials
+# Note: Requires photonic SDK and hardware access credentials
 result = solver.submit_job(problem)
 
 # 🚧 Alternative: IBM Quantum (Abstract Interface Ready)
@@ -340,7 +328,7 @@ result = solver.submit_job(problem)
 **Integration Status**:
 - ✅ Abstract interfaces defined in `src/solvers/quantum_hardware_interface.py`
 - ✅ Standardized job submission and result retrieval methods
-- 🚧 Requires actual SDK integration (qiskit-ibm-runtime, AWS Braket SDK, Rotonium SDK)
+- 🚧 Requires actual SDK integration (qiskit-ibm-runtime, AWS Braket SDK, Photonic SDK)
 - 🚧 Requires hardware access credentials and accounts
 
 #### 4. **Value Proposition for Customers**
@@ -355,7 +343,7 @@ result = solver.submit_job(problem)
 
 ### Competitive Advantages: Photonic vs. Cryogenic
 
-| Aspect | Rotonium (Photonic) | Cryogenic Systems |
+| Aspect | Photonic | Cryogenic Systems |
 |--------|---------------------|-------------------|
 | **Operating Temperature** | Room temperature (20°C) | Near absolute zero (~0.01K) |
 | **Power Consumption** | <100W | 10-25 kW (incl. cooling) |
@@ -364,20 +352,20 @@ result = solver.submit_job(problem)
 | **Edge Suitability** | Excellent | Impractical |
 | **Maintenance** | Minimal | Complex cryogenic systems |
 
-For detailed integration guide, see [**docs/rotonium-integration.md**](docs/rotonium-integration.md)
+For detailed integration guide, see [**docs/edge-photonic-integration.md**](docs/edge-photonic-integration.md)
 
 ---
 
-## QuiX Quantum Integration
+## Data Center Photonic Integration
 
-The Target Profiles architecture also ships with a full QuiX configuration focused on HPC/data-center deployments. Highlights:
+The Deployment Profiles architecture also ships with a full datacenter configuration focused on HPC/data-center deployments. Highlights:
 
-- **QuiXCloudBackend** connects to `cloud.quixquantum.com` with `httpx` when `QUIX_API_KEY` is provided, or uses a high-fidelity mock when testing locally.
+- **DatacenterCloudBackend** connects to the cloud API with `httpx` when `QUANTUM_CLOUD_API_KEY` is provided, or uses a high-fidelity mock when testing locally.
 - **DatacenterEnvironment** models `hpc_cluster`, `datacenter_rack`, and `cloud_node` profiles with realistic power, GPU, and bandwidth constraints plus PUE-based energy accounting.
-- **Demo Scenarios** (pharma optimization, portfolio risk, hydrology) showcase how silicon-nitride photonic processors slot into HPC pipelines.
-- **Dashboard & API** automatically adapt branding, metrics, and documentation links when `QUANTUMEDGE_PROFILE=quix`.
+- **Demo Scenarios** (molecular optimization, portfolio risk, network optimization) showcase how photonic processors slot into HPC pipelines.
+- **Dashboard & API** automatically adapt metrics and documentation links when `QUANTUMEDGE_PROFILE=datacenter`.
 
-For the full guide, see [**docs/quix-integration.md**](docs/quix-integration.md).
+For the full guide, see [**docs/datacenter-integration.md**](docs/datacenter-integration.md).
 
 ---
 
@@ -397,7 +385,7 @@ The Streamlit dashboard includes pre-configured demo scenarios that automaticall
 6. **Click "Clear Demo"** to reset to default values
 
 
-### Rotonium Scenarios (Edge)
+### Edge Scenarios
 
 #### 1.  Aerospace Routing Optimization
 
@@ -462,7 +450,7 @@ The Streamlit dashboard includes pre-configured demo scenarios that automaticall
 - Mobile power constraints are restrictive
 - Winner: Context-dependent (varies based on runtime analysis)
 
-### QuiX Scenarios (Data Center)
+### Datacenter Scenarios
 
 #### 4. Drug Discovery Sampling
 - **Profile**: `PHARMA_OPTIMIZATION`
@@ -483,7 +471,7 @@ The Streamlit dashboard includes pre-configured demo scenarios that automaticall
 - **Problem Type**: MaxCut (45 nodes)
 - **Deployment**: Cloud node
 - **Strategy**: Balanced
-- **Highlights**: Cloud-hosted QuiX hardware models water-network optimization with PUE-adjusted energy metrics.
+- **Highlights**: Cloud-hosted photonic hardware models network optimization with PUE-adjusted energy metrics.
 
 ---
 
@@ -493,7 +481,7 @@ The Streamlit dashboard includes pre-configured demo scenarios that automaticall
 
 ```
 quantumedge-pipeline/
-├── profiles/                    # Company profiles (rotonium, quix, default)
+├── profiles/                    # Deployment profiles (edge, datacenter, default)
 ├── src/                          # Main source code
 │   ├── __init__.py
 │   ├── config.py                 # Global configuration settings
@@ -527,8 +515,8 @@ quantumedge-pipeline/
 │       └── quantum_simulator.py  # Quantum algorithm simulators
 │   └── backends/                 # Pluggable quantum hardware backends
 │       ├── backend_base.py       # QuantumBackend ABC
-│       ├── rotonium_mock.py      # Photonic mock backend
-│       └── quix_cloud.py         # QuiX cloud API client (real/mock)
+│       ├── edge_mock.py          # Photonic mock backend
+│       └── datacenter_cloud.py   # Cloud API client (real/mock)
 │
 ├── examples/
 │   └── scenarios/                # JSON payloads for dashboard demo scenarios
@@ -556,7 +544,7 @@ quantumedge-pipeline/
 │   ├── docker-services.md        # Docker services overview
 │   ├── quantum-basics.md         # Quantum computing primer
 │   ├── quickstart.md             # Quick start guide
-│   └── rotonium-integration.md   # Rotonium integration guide
+│   └── edge-photonic-integration.md   # Edge photonic integration guide
 │
 ├── Dockerfile                    # Docker image definition
 ├── docker-compose.yml            # Multi-service orchestration
@@ -666,7 +654,7 @@ docker-compose exec api python scripts/benchmark_solvers.py --csv benchmark_resu
 - **Quantum Annealing**: Adiabatic quantum computation on real hardware (D-Wave)
 - **IBM Quantum**: Real quantum hardware execution (requires IBM Quantum account)
 - **AWS Braket**: Cloud quantum computing service (requires AWS account)
-- **Rotonium QPU**: Photonic quantum processor (requires hardware access)
+- **Photonic QPU**: Photonic quantum processor (requires hardware access)
 
 ### Routing Decision Logic
 
@@ -706,8 +694,8 @@ energy_quantum = (
     classical_overhead_energy  # Parameter optimization
 )
 
-# Rotonium photonic QPU (estimated)
-energy_rotonium = (
+# Photonic QPU (estimated)
+energy_photonic = (
     laser_power_watts * execution_time_seconds +
     detector_power_watts * num_measurements
 )

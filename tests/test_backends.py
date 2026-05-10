@@ -6,8 +6,8 @@ import pytest
 from unittest.mock import patch, MagicMock
 
 from src.backends.backend_base import QuantumBackend
-from src.backends.rotonium_mock import RotoniumMockBackend
-from src.backends.quix_cloud import QuiXCloudBackend
+from src.backends.photonic_mock import PhotonicMockBackend
+from src.backends.photonic_cloud import PhotonicCloudBackend
 from src.backends import create_backend
 
 
@@ -38,22 +38,22 @@ class TestQuantumBackendABC:
 
 
 # ============================================================================
-# RotoniumMockBackend
+# PhotonicMockBackend
 # ============================================================================
 
 
-class TestRotoniumMockBackend:
-    """Tests for the Rotonium mock backend."""
+class TestPhotonicMockBackend:
+    """Tests for the photonic mock backend."""
 
     @pytest.fixture
     def backend(self):
-        return RotoniumMockBackend()
+        return PhotonicMockBackend()
 
     def test_submit_job_returns_id(self, backend):
-        """submit_job should return a string job_id starting with 'rot-'."""
+        """submit_job should return a string job_id starting with 'photonic-'."""
         job_id = backend.submit_job({"num_qubits": 5}, shots=100)
         assert isinstance(job_id, str)
-        assert job_id.startswith("rot-")
+        assert job_id.startswith("photonic-")
 
     def test_get_job_result_structure(self, backend):
         """Result dict should contain expected keys."""
@@ -71,13 +71,13 @@ class TestRotoniumMockBackend:
     def test_get_result_unknown_job(self, backend):
         """Requesting an unknown job_id should raise KeyError."""
         with pytest.raises(KeyError, match="not found"):
-            backend.get_job_result("rot-nonexistent")
+            backend.get_job_result("photonic-nonexistent")
 
     def test_hardware_specs(self, backend):
-        """Hardware specs should describe Rotonium photonic QPU."""
+        """Hardware specs should describe photonic QPU."""
         specs = backend.get_hardware_specs()
 
-        assert specs["provider"] == "Rotonium"
+        assert specs["provider"] == "Photonic Simulator"
         assert specs["technology"] == "Photonic (OAM encoding)"
         assert specs["max_qubits"] == 20
         assert specs["cryogenics_required"] is False
@@ -114,22 +114,22 @@ class TestRotoniumMockBackend:
 
 
 # ============================================================================
-# QuiXCloudBackend
+# PhotonicCloudBackend
 # ============================================================================
 
 
-class TestQuiXCloudBackend:
-    """Tests for the QuiX cloud backend."""
+class TestPhotonicCloudBackend:
+    """Tests for the photonic cloud backend."""
 
     @pytest.fixture
     def mock_backend(self):
         """Backend in mock mode (no API key)."""
-        return QuiXCloudBackend(api_key="")
+        return PhotonicCloudBackend(api_key="")
 
     @pytest.fixture
     def keyed_backend(self):
         """Backend with an API key (will attempt real calls)."""
-        return QuiXCloudBackend(api_key="test-key-123")
+        return PhotonicCloudBackend(api_key="test-key-123")
 
     def test_mock_mode_without_key(self, mock_backend):
         """Backend should be in mock mode when no key is provided."""
@@ -140,10 +140,10 @@ class TestQuiXCloudBackend:
         assert keyed_backend.mock_mode is False
 
     def test_mock_submit_returns_id(self, mock_backend):
-        """Mock submit should return a 'quix-' prefixed job_id."""
+        """Mock submit should return a 'photonic-' prefixed job_id."""
         job_id = mock_backend.submit_job({"num_qubits": 6}, shots=128)
         assert isinstance(job_id, str)
-        assert job_id.startswith("quix-")
+        assert job_id.startswith("photonic-")
 
     def test_mock_result_structure(self, mock_backend):
         """Mock result should include PUE-adjusted energy."""
@@ -160,13 +160,13 @@ class TestQuiXCloudBackend:
     def test_mock_result_unknown_job(self, mock_backend):
         """Requesting unknown job in mock mode should raise KeyError."""
         with pytest.raises(KeyError, match="not found"):
-            mock_backend.get_job_result("quix-nonexistent")
+            mock_backend.get_job_result("photonic-nonexistent")
 
     def test_hardware_specs(self, mock_backend):
-        """Specs should describe QuiX silicon-nitride processor."""
+        """Specs should describe photonic processor."""
         specs = mock_backend.get_hardware_specs()
 
-        assert specs["provider"] == "QuiX Quantum"
+        assert specs["provider"] == "Photonic Cloud"
         assert specs["technology"] == "Silicon Nitride Photonic"
         assert specs["max_qubits"] == 20
         assert specs["cryogenics_required"] is False
@@ -191,9 +191,9 @@ class TestQuiXCloudBackend:
                 keyed_backend._submit_real({"num_qubits": 4}, 100)
 
     def test_init_from_env_var(self):
-        """Backend should read QUIX_API_KEY from environment."""
-        with patch.dict("os.environ", {"QUIX_API_KEY": "env-key-456"}):
-            backend = QuiXCloudBackend()
+        """Backend should read QUANTUM_CLOUD_API_KEY from environment."""
+        with patch.dict("os.environ", {"QUANTUM_CLOUD_API_KEY": "env-key-456"}):
+            backend = PhotonicCloudBackend()
             assert backend.api_key == "env-key-456"
             assert backend.mock_mode is False
 
@@ -206,15 +206,15 @@ class TestQuiXCloudBackend:
 class TestCreateBackend:
     """Tests for the factory function."""
 
-    def test_create_rotonium_mock(self):
-        """Factory should return RotoniumMockBackend."""
-        backend = create_backend("rotonium_mock")
-        assert isinstance(backend, RotoniumMockBackend)
+    def test_create_photonic_mock(self):
+        """Factory should return PhotonicMockBackend."""
+        backend = create_backend("photonic_mock")
+        assert isinstance(backend, PhotonicMockBackend)
 
-    def test_create_quix_cloud(self):
-        """Factory should return QuiXCloudBackend."""
-        backend = create_backend("quix_cloud")
-        assert isinstance(backend, QuiXCloudBackend)
+    def test_create_photonic_cloud(self):
+        """Factory should return PhotonicCloudBackend."""
+        backend = create_backend("photonic_cloud")
+        assert isinstance(backend, PhotonicCloudBackend)
 
     def test_unknown_backend_raises(self):
         """Unknown backend name should raise ValueError."""
@@ -223,6 +223,6 @@ class TestCreateBackend:
 
     def test_kwargs_passed_to_constructor(self):
         """Factory should forward kwargs to the backend constructor."""
-        backend = create_backend("quix_cloud", api_key="test-key")
+        backend = create_backend("photonic_cloud", api_key="test-key")
         assert backend.api_key == "test-key"
         assert backend.mock_mode is False

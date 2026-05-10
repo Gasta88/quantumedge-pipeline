@@ -1,13 +1,13 @@
 """
-QuiX Quantum cloud API backend.
+Photonic cloud API backend.
 
-Connects to the QuiX Quantum cloud platform (cloud.quixquantum.com) to submit
+Connects to a photonic quantum cloud platform to submit
 jobs to real silicon-nitride photonic quantum hardware. When no API key is
 configured the backend operates in **mock mode**, returning simulated results
 that mirror the real API response format.
 
 Environment variable:
-    QUIX_API_KEY  — API key for authentication with the QuiX cloud.
+    QUANTUM_CLOUD_API_KEY  — API key for authentication with the quantum cloud.
 """
 
 import hashlib
@@ -23,51 +23,51 @@ from src.backends.backend_base import QuantumBackend
 logger = logging.getLogger(__name__)
 
 
-class QuiXCloudBackend(QuantumBackend):
+class PhotonicCloudBackend(QuantumBackend):
     """
-    Backend for QuiX Quantum's cloud photonic processor.
+    Backend for photonic cloud quantum processor.
 
     When a valid api_key is provided the backend will attempt to reach the
-    real QuiX cloud API.  If no key is given (or the key is empty) it falls
+    real cloud API.  If no key is given (or the key is empty) it falls
     back to a local mock that produces realistic response shapes so the rest
     of the pipeline can run end-to-end without hardware access.
     """
 
-    BASE_URL = "https://cloud.quixquantum.com/api"
-    MAX_QUBITS = 20  # Current QuiX processor limit
+    BASE_URL = "https://api.example.com/quantum"
+    MAX_QUBITS = 20  # Current photonic processor limit
 
     def __init__(self, api_key: Optional[str] = None) -> None:
-        self.api_key = api_key or os.environ.get("QUIX_API_KEY", "")
+        self.api_key = api_key or os.environ.get("QUANTUM_CLOUD_API_KEY", "")
         self.mock_mode = not bool(self.api_key)
         self._jobs: Dict[str, dict] = {}
 
         if self.mock_mode:
-            logger.info("QuiXCloudBackend running in MOCK mode (no QUIX_API_KEY set)")
+            logger.info("PhotonicCloudBackend running in MOCK mode (no QUANTUM_CLOUD_API_KEY set)")
         else:
-            logger.info("QuiXCloudBackend initialised with API key")
+            logger.info("PhotonicCloudBackend initialised with API key")
 
     # ------------------------------------------------------------------
     # QuantumBackend interface
     # ------------------------------------------------------------------
 
     def submit_job(self, circuit: Any, shots: int = 1024) -> str:
-        """Submit a job to QuiX cloud (or mock)."""
+        """Submit a job to photonic cloud (or mock)."""
         if not self.mock_mode:
             return self._submit_real(circuit, shots)
         return self._submit_mock(circuit, shots)
 
     def get_job_result(self, job_id: str) -> dict:
-        """Retrieve job result from QuiX cloud (or mock)."""
+        """Retrieve job result from photonic cloud (or mock)."""
         if not self.mock_mode:
             return self._get_result_real(job_id)
         if job_id not in self._jobs:
-            raise KeyError(f"Job '{job_id}' not found in QuiX mock backend")
+            raise KeyError(f"Job '{job_id}' not found in photonic cloud mock backend")
         return self._jobs[job_id]
 
     def get_hardware_specs(self) -> dict:
-        """Return QuiX photonic processor specifications."""
+        """Return photonic processor specifications."""
         return {
-            "provider": "QuiX Quantum",
+            "provider": "Photonic Cloud",
             "technology": "Silicon Nitride Photonic",
             "max_qubits": self.MAX_QUBITS,
             "operating_temperature_k": 293.15,
@@ -81,7 +81,7 @@ class QuiXCloudBackend(QuantumBackend):
         }
 
     def estimate_job_cost(self, circuit: Any) -> dict:
-        """Estimate execution cost on QuiX hardware."""
+        """Estimate execution cost on photonic hardware."""
         num_qubits = self._estimate_qubits(circuit)
         shots = 1024
         time_ms = num_qubits * 1.2 + shots * 0.008
@@ -99,11 +99,11 @@ class QuiXCloudBackend(QuantumBackend):
     # ------------------------------------------------------------------
 
     def _submit_real(self, circuit: Any, shots: int) -> str:
-        """Submit to the real QuiX cloud API."""
+        """Submit to the real cloud API."""
         try:
             import httpx
         except ImportError:
-            raise ImportError("httpx is required for real QuiX cloud access: pip install httpx")
+            raise ImportError("httpx is required for real cloud access: pip install httpx")
 
         payload = {
             "circuit": str(circuit),
@@ -121,15 +121,15 @@ class QuiXCloudBackend(QuantumBackend):
         )
         response.raise_for_status()
         data = response.json()
-        job_id = data.get("job_id", f"quix-{uuid4().hex[:12]}")
+        job_id = data.get("job_id", f"photonic-{uuid4().hex[:12]}")
         return job_id
 
     def _get_result_real(self, job_id: str) -> dict:
-        """Poll the real QuiX cloud API for a job result."""
+        """Poll the real cloud API for a job result."""
         try:
             import httpx
         except ImportError:
-            raise ImportError("httpx is required for real QuiX cloud access: pip install httpx")
+            raise ImportError("httpx is required for real cloud access: pip install httpx")
 
         headers = {"Authorization": f"Bearer {self.api_key}"}
         response = httpx.get(
@@ -145,8 +145,8 @@ class QuiXCloudBackend(QuantumBackend):
     # ------------------------------------------------------------------
 
     def _submit_mock(self, circuit: Any, shots: int) -> str:
-        """Simulate a QuiX cloud job submission locally."""
-        job_id = f"quix-{uuid4().hex[:12]}"
+        """Simulate a cloud job submission locally."""
+        job_id = f"photonic-{uuid4().hex[:12]}"
         start = time.perf_counter()
 
         circuit_repr = str(circuit)
@@ -182,9 +182,9 @@ class QuiXCloudBackend(QuantumBackend):
     def _estimate_qubits(circuit: Any) -> int:
         """Heuristically estimate qubit count from a circuit description."""
         if hasattr(circuit, "num_qubits"):
-            return min(circuit.num_qubits, QuiXCloudBackend.MAX_QUBITS)
+            return min(circuit.num_qubits, PhotonicCloudBackend.MAX_QUBITS)
         if isinstance(circuit, dict) and "num_qubits" in circuit:
-            return min(circuit["num_qubits"], QuiXCloudBackend.MAX_QUBITS)
+            return min(circuit["num_qubits"], PhotonicCloudBackend.MAX_QUBITS)
         return 8
 
     @staticmethod

@@ -426,7 +426,7 @@ app = FastAPI(
     
     ## Key Features
     
-    - **Rotonium Integration**: Optimized for room-temperature photonic quantum processors
+    - **Photonic Integration**: Optimized for room-temperature photonic quantum processors
     - **Resource Awareness**: Respects power, memory, and thermal constraints
     - **Multiple Strategies**: Balanced, energy-optimized, latency-optimized, quality-optimized
     - **Transparent Decisions**: Detailed reasoning and confidence scores

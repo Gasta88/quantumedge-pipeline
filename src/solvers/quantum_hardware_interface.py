@@ -2,7 +2,7 @@
 Abstract interfaces for real quantum hardware backends.
 
 This module defines abstract base classes for integrating with real quantum
-computing hardware from various providers (IBM Quantum, AWS Braket, Rotonium QPU).
+computing hardware from various providers (IBM Quantum, AWS Braket, Photonic QPU).
 
 The interfaces provide a standardized way to:
 - Connect to quantum hardware
@@ -14,7 +14,7 @@ Hardware Providers Supported:
 -----------------------------
 1. IBM Quantum: Superconducting qubit processors
 2. AWS Braket: Multi-vendor quantum computing service
-3. Rotonium QPU: Photonic quantum processors (room temperature)
+3. Photonic QPU: Photonic quantum processors (room temperature)
 
 Design Philosophy:
 ------------------
@@ -92,7 +92,7 @@ class QuantumHardwareInterface(ABC):
         Initialize quantum hardware interface.
         
         Args:
-            provider_name: Name of the provider (e.g., 'ibm', 'aws', 'rotonium')
+            provider_name: Name of the provider (e.g., 'ibm', 'aws', 'photonic')
         """
         self.provider_name = provider_name
         self.backend_name: Optional[str] = None
@@ -544,20 +544,20 @@ class AWSBraketInterface(QuantumHardwareInterface):
         raise NotImplementedError("AWS Braket integration not fully implemented")
 
 
-class RotoniumQPUInterface(QuantumHardwareInterface):
+class PhotonicQPUInterface(QuantumHardwareInterface):
     """
-    Interface for Rotonium photonic quantum processor.
+    Interface for photonic quantum processor.
     
-    Rotonium QPUs use photonic qubits operating at room temperature with
+    Photonic QPUs use photonic qubits operating at room temperature with
     Orbital Angular Momentum (OAM) encoding.
     
     Requirements:
-    - Rotonium SDK/API access
+    - Photonic SDK/API access
     - Account credentials
     - Understanding of photonic quantum computing specifics
     
     Note: This is a placeholder implementation. Real integration requires:
-    1. Rotonium SDK/API package
+    1. Photonic SDK/API package
     2. Hardware access credentials
     3. Photonic circuit representation
     4. OAM encoding/decoding
@@ -565,51 +565,51 @@ class RotoniumQPUInterface(QuantumHardwareInterface):
     """
     
     def __init__(self):
-        """Initialize Rotonium QPU interface."""
-        super().__init__(provider_name='rotonium')
+        """Initialize photonic QPU interface."""
+        super().__init__(provider_name='photonic')
     
     def connect(self, credentials: Dict[str, str], backend_name: Optional[str] = None, **kwargs) -> bool:
-        """Connect to Rotonium QPU."""
-        logger.warning("Rotonium QPU integration not fully implemented")
+        """Connect to photonic QPU."""
+        logger.warning("Photonic QPU integration not fully implemented")
         raise NotImplementedError(
-            "Rotonium QPU requires hardware access and proprietary SDK"
+            "Photonic QPU requires hardware access and proprietary SDK"
         )
     
     def disconnect(self) -> None:
-        """Disconnect from Rotonium QPU."""
+        """Disconnect from photonic QPU."""
         pass
     
     def get_backend_properties(self) -> Dict[str, Any]:
-        """Get Rotonium QPU properties."""
-        raise NotImplementedError("Rotonium QPU integration not fully implemented")
+        """Get photonic QPU properties."""
+        raise NotImplementedError("Photonic QPU integration not fully implemented")
     
     def get_backend_status(self) -> HardwareStatus:
-        """Get Rotonium QPU status."""
+        """Get photonic QPU status."""
         return HardwareStatus.UNKNOWN
     
     def submit_circuit(self, circuit: Any, shots: int = 1024, **kwargs) -> str:
-        """Submit circuit to Rotonium QPU."""
-        raise NotImplementedError("Rotonium QPU integration not fully implemented")
+        """Submit circuit to photonic QPU."""
+        raise NotImplementedError("Photonic QPU integration not fully implemented")
     
     def get_job_status(self, job_id: str) -> JobStatus:
-        """Get Rotonium job status."""
-        raise NotImplementedError("Rotonium QPU integration not fully implemented")
+        """Get photonic job status."""
+        raise NotImplementedError("Photonic QPU integration not fully implemented")
     
     def get_result(self, job_id: str, timeout: Optional[int] = None) -> Dict[str, Any]:
-        """Get Rotonium job result."""
-        raise NotImplementedError("Rotonium QPU integration not fully implemented")
+        """Get photonic job result."""
+        raise NotImplementedError("Photonic QPU integration not fully implemented")
     
     def cancel_job(self, job_id: str) -> bool:
-        """Cancel Rotonium job."""
-        raise NotImplementedError("Rotonium QPU integration not fully implemented")
+        """Cancel photonic job."""
+        raise NotImplementedError("Photonic QPU integration not fully implemented")
     
     def list_backends(self) -> List[Dict[str, Any]]:
-        """List Rotonium QPU devices."""
-        raise NotImplementedError("Rotonium QPU integration not fully implemented")
+        """List photonic QPU devices."""
+        raise NotImplementedError("Photonic QPU integration not fully implemented")
     
     def transpile_circuit(self, circuit: Any, optimization_level: int = 1) -> Any:
-        """Transpile circuit for Rotonium QPU."""
-        raise NotImplementedError("Rotonium QPU integration not fully implemented")
+        """Transpile circuit for photonic QPU."""
+        raise NotImplementedError("Photonic QPU integration not fully implemented")
 
 
 # Convenience function
@@ -618,7 +618,7 @@ def create_hardware_interface(provider: str) -> QuantumHardwareInterface:
     Factory function to create hardware interface.
     
     Args:
-        provider: Provider name ('ibm', 'aws', 'rotonium')
+        provider: Provider name ('ibm', 'aws', 'photonic')
     
     Returns:
         Appropriate hardware interface instance
@@ -633,7 +633,7 @@ def create_hardware_interface(provider: str) -> QuantumHardwareInterface:
     providers = {
         'ibm': IBMQuantumInterface,
         'aws': AWSBraketInterface,
-        'rotonium': RotoniumQPUInterface,
+        'photonic': PhotonicQPUInterface,
     }
     
     if provider.lower() not in providers:
