@@ -1,8 +1,8 @@
 """
 Data Center Environment Simulator for Quantum-Classical Hybrid Systems.
 
-Analogous to edge_simulator.py (Rotonium edge profiles), this module
-models resource constraints and energy accounting for QuiX Quantum
+Analogous to edge_simulator.py (edge profiles), this module
+models resource constraints and energy accounting for photonic
 data-center deployments.
 
 Key difference from edge deployments:
@@ -26,7 +26,7 @@ import statistics
 
 
 class DatacenterProfile(Enum):
-    """Predefined data-center deployment scenarios for QuiX Quantum."""
+    """Predefined data-center deployment scenarios."""
 
     HPC_CLUSTER = "hpc_cluster"
     DATACENTER_RACK = "datacenter_rack"
@@ -88,7 +88,7 @@ class DatacenterEnvironment:
     Each profile represents a realistic data-center tier with different
     power budgets, memory, networking, and cost characteristics.
 
-    QuiX Quantum advantage in data centers:
+    Photonic advantage in data centers:
         - Room-temperature photonic processors integrate into standard racks
         - No cryogenic infrastructure — lower total cost of ownership
         - Silicon-nitride chips compatible with CMOS fabrication
@@ -112,7 +112,7 @@ class DatacenterEnvironment:
             self.gpu_count = 8  # GPU accelerators
             self.network_gbps = 100.0  # InfiniBand / RoCE
             self.pue_ratio = 1.2  # Efficient HPC facility
-            self.deployment_context = "Dedicated HPC partition with QuiX photonic QPU co-processor"
+            self.deployment_context = "Dedicated HPC partition with photonic QPU co-processor"
 
         elif self.profile == DatacenterProfile.DATACENTER_RACK:
             self.power_budget_watts = 2000.0  # Single 42U rack budget
@@ -124,7 +124,7 @@ class DatacenterEnvironment:
             self.network_gbps = 25.0  # 25 GbE
             self.pue_ratio = 1.4  # Average data center
             self.deployment_context = (
-                "Standard rack-mounted QuiX quantum blade alongside classical servers"
+                "Standard rack-mounted photonic quantum blade alongside classical servers"
             )
 
         elif self.profile == DatacenterProfile.CLOUD_NODE:
@@ -136,7 +136,7 @@ class DatacenterEnvironment:
             self.gpu_count = 0  # CPU-only cloud tier
             self.network_gbps = 10.0  # Cloud VPC bandwidth
             self.pue_ratio = 1.3  # Hyperscaler average
-            self.deployment_context = "Cloud-hosted QuiX quantum instance via cloud.quixquantum.com"
+            self.deployment_context = "Cloud-hosted photonic quantum instance via quantum cloud API"
 
         else:
             raise ValueError(f"Unknown datacenter profile: {self.profile}")
@@ -198,7 +198,7 @@ class DatacenterEnvironment:
                 "network_gbps": self.network_gbps,
             },
             "pue_ratio": self.pue_ratio,
-            "quix_advantage": (
+            "photonic_advantage": (
                 "Room-temperature silicon-nitride photonic processor integrates "
                 "into standard data-center racks with no cryogenic infrastructure, "
                 "lowering TCO and enabling modular scaling."

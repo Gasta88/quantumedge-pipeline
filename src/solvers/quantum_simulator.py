@@ -3,7 +3,7 @@ Quantum Simulator for Optimization Problems in QuantumEdge Pipeline.
 
 This module provides a quantum simulator implementation using Pennylane that
 simulates photonic quantum computing characteristics. It's designed to mirror
-the behavior of Rotonium's room-temperature photonic quantum computers.
+the behavior of room-temperature photonic quantum computers.
 
 Key Features:
     - Pennylane-based quantum circuit simulation

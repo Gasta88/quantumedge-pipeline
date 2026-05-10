@@ -1,5 +1,5 @@
 """
-Mock backend simulating Rotonium's photonic QPU characteristics.
+Mock backend simulating a photonic quantum processor.
 
 This backend produces realistic simulated results for demonstration and
 testing without requiring real quantum hardware. It models:
@@ -18,9 +18,9 @@ from uuid import uuid4
 from src.backends.backend_base import QuantumBackend
 
 
-class RotoniumMockBackend(QuantumBackend):
+class PhotonicMockBackend(QuantumBackend):
     """
-    Simulated Rotonium photonic QPU backend.
+    Simulated photonic QPU backend.
 
     Generates plausible quantum results by modelling photonic noise
     and OAM encoding characteristics. All execution happens locally —
@@ -43,7 +43,7 @@ class RotoniumMockBackend(QuantumBackend):
 
     def submit_job(self, circuit: Any, shots: int = 1024) -> str:
         """Submit a simulated photonic job and return a job_id."""
-        job_id = f"rot-{uuid4().hex[:12]}"
+        job_id = f"photonic-{uuid4().hex[:12]}"
         start = time.perf_counter()
 
         # Derive a reproducible circuit "fingerprint" for deterministic results
@@ -74,13 +74,13 @@ class RotoniumMockBackend(QuantumBackend):
     def get_job_result(self, job_id: str) -> dict:
         """Retrieve result of a previously submitted mock job."""
         if job_id not in self._jobs:
-            raise KeyError(f"Job '{job_id}' not found in Rotonium mock backend")
+            raise KeyError(f"Job '{job_id}' not found in photonic mock backend")
         return self._jobs[job_id]
 
     def get_hardware_specs(self) -> dict:
-        """Return Rotonium photonic QPU specifications."""
+        """Return photonic QPU specifications."""
         return {
-            "provider": "Rotonium",
+            "provider": "Photonic Simulator",
             "technology": "Photonic (OAM encoding)",
             "max_qubits": self.MAX_QUBITS,
             "oam_modes": self.OAM_MODES,
@@ -93,7 +93,7 @@ class RotoniumMockBackend(QuantumBackend):
         }
 
     def estimate_job_cost(self, circuit: Any) -> dict:
-        """Estimate execution cost for a Rotonium mock job."""
+        """Estimate execution cost for a photonic mock job."""
         num_qubits = self._estimate_qubits(circuit)
         shots = 1024  # default assumption
         return {
@@ -111,9 +111,9 @@ class RotoniumMockBackend(QuantumBackend):
     def _estimate_qubits(circuit: Any) -> int:
         """Heuristically estimate qubit count from a circuit description."""
         if hasattr(circuit, "num_qubits"):
-            return min(circuit.num_qubits, RotoniumMockBackend.MAX_QUBITS)
+            return min(circuit.num_qubits, PhotonicMockBackend.MAX_QUBITS)
         if isinstance(circuit, dict) and "num_qubits" in circuit:
-            return min(circuit["num_qubits"], RotoniumMockBackend.MAX_QUBITS)
+            return min(circuit["num_qubits"], PhotonicMockBackend.MAX_QUBITS)
         # Fallback: small default
         return 8
 

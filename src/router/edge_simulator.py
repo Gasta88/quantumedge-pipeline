@@ -5,7 +5,7 @@ This module simulates resource constraints of different edge deployment scenario
 for quantum computing applications. It helps evaluate whether quantum or classical
 jobs can be executed within the physical and operational constraints of edge devices.
 
-Key advantage of Rotonium technology:
+Key advantage of photonic quantum technology:
 - Room-temperature quantum processing units (QPUs) eliminate cryogenic cooling
 - Dramatically reduces power consumption and thermal management complexity
 - Enables quantum computing in resource-constrained edge environments
@@ -89,12 +89,12 @@ class EdgeEnvironment:
     
     1. POWER BUDGET: Edge devices run on limited power (battery, solar, or
        constrained grid access). Quantum computing traditionally requires
-       massive power for cryogenic cooling. Rotonium's room-temperature QPU
+       massive power for cryogenic cooling. Photonic room-temperature QPU
        eliminates this bottleneck, making edge quantum computing viable.
     
     2. THERMAL LIMITS: Aerospace and mobile environments have strict thermal
        constraints. Traditional quantum computers need dilution refrigerators
-       at ~15 millikelvin. Rotonium operates at room temperature, avoiding
+       at ~15 millikelvin. Photonic QPUs operate at room temperature, avoiding
        the 100+ watts of cooling power per qubit.
     
     3. COMPUTE TIMEOUT: Edge applications often need real-time or near-real-time
@@ -138,7 +138,7 @@ class EdgeEnvironment:
             # - Intermittent satellite connectivity
             # - Radiation-hardened components needed
             # 
-            # Rotonium advantage: Room-temperature QPU enables space-based
+            # Photonic advantage: Room-temperature QPU enables space-based
             # quantum computing without bulky cryogenic systems. A traditional
             # superconducting quantum computer would need ~1kW just for cooling,
             # making it impossible for aerospace deployment.
@@ -151,7 +151,7 @@ class EdgeEnvironment:
             self.thermal_limit_celsius = 60.0
             # Space electronics typically rated to 60-85°C
             # Without air convection, thermal management is critical
-            # Rotonium's room-temp operation is game-changing here
+            # Photonic room-temp operation is game-changing here
             
             self.compute_timeout_seconds = 10.0
             # Fast decisions needed for navigation, sensing, optimization
@@ -170,7 +170,7 @@ class EdgeEnvironment:
             # Too slow to stream quantum jobs to/from cloud
             # On-board quantum processing is essential
             
-            self.deployment_context = "UAV or satellite deployment with Rotonium QPU"
+            self.deployment_context = "UAV or satellite deployment with photonic QPU"
         
         elif self.profile == DeploymentProfile.MOBILE:
             # =================================================================
@@ -185,7 +185,7 @@ class EdgeEnvironment:
             # - Variable environmental conditions
             # - Mobile network connectivity
             # 
-            # Rotonium advantage: Enables quantum-enhanced navigation, sensing,
+            # Photonic advantage: Enables quantum-enhanced navigation, sensing,
             # and optimization in vehicles. Traditional quantum computers would
             # require a truck just for the cryogenic system!
             # =================================================================
@@ -193,7 +193,7 @@ class EdgeEnvironment:
             self.power_budget_watts = 15.0
             # 15W is typical for edge AI accelerators in vehicles
             # Must share power budget with other vehicle systems
-            # Rotonium's low power enables mobile quantum computing
+            # Photonic low power enables mobile quantum computing
             
             self.thermal_limit_celsius = 45.0
             # Consumer/automotive electronics comfort range
@@ -231,7 +231,7 @@ class EdgeEnvironment:
             # - Cooling infrastructure
             # - Shared resources with other workloads
             # 
-            # Rotonium advantage: Room-temperature QPU dramatically reduces
+            # Photonic advantage: Room-temperature QPU dramatically reduces
             # operational costs compared to cryogenic quantum systems. No need
             # for dilution refrigerators, liquid helium, or specialized HVAC.
             # Can be rack-mounted alongside classical servers.
@@ -244,7 +244,7 @@ class EdgeEnvironment:
             self.thermal_limit_celsius = 80.0
             # Server-grade components rated to 80-90°C
             # Standard data center cooling is sufficient
-            # Rotonium eliminates need for cryogenic infrastructure
+            # Photonic eliminates need for cryogenic infrastructure
             
             self.compute_timeout_seconds = 60.0
             # More relaxed timing for batch processing
@@ -275,14 +275,14 @@ class EdgeEnvironment:
         physical and operational limits of the edge environment. All constraints
         must be satisfied for successful execution.
         
-        Key consideration: Rotonium's room-temperature QPU has fundamentally
+        Key consideration: Photonic room-temperature QPU has fundamentally
         different power and thermal profiles than traditional quantum computers.
         A typical superconducting quantum computer needs:
         - 1000+ watts for cryogenic cooling
         - Dilution refrigerator to reach ~15 millikelvin
         - Bulky infrastructure (room-sized for 50+ qubits)
         
-        Rotonium's molecular quantum system needs:
+        Photonic quantum systems need:
         - < 50 watts for the QPU itself
         - Room temperature operation (no cryogenics!)
         - Compact form factor suitable for edge deployment
@@ -301,7 +301,7 @@ class EdgeEnvironment:
         
         # Thermal constraint check
         # Ensures device won't overheat during quantum computation
-        # Rotonium advantage: No cryogenic cooling needed
+        # Photonic advantage: No cryogenic cooling needed
         if job.thermal_output_watts > self._calculate_thermal_budget():
             return False
         
@@ -423,7 +423,7 @@ class EdgeEnvironment:
         - Thermal mass of the device
         - Duty cycle and transient thermal response
         
-        Key insight: Rotonium's room-temperature operation means:
+        Key insight: Photonic room-temperature operation means:
         - No need to maintain millikelvin temperatures
         - No cryogenic cooling power consumption
         - Thermal output is primarily from classical control electronics
@@ -513,7 +513,7 @@ class EdgeEnvironment:
                 "network_bandwidth_mbps": self.network_bandwidth_mbps,
             },
             "thermal_budget_watts": self._calculate_thermal_budget(),
-            "rotonium_advantage": (
+            "photonic_advantage": (
                 "Room-temperature quantum processing eliminates cryogenic "
                 "cooling requirements, enabling quantum computing in resource-"
                 "constrained edge environments."
@@ -539,7 +539,7 @@ class ResourceTracker:
        tasks (navigation, sensing, communications).
     
     2. THERMAL MANAGEMENT: By tracking thermal history, we can implement
-       thermal throttling to prevent damage. Rotonium's room-temperature
+       thermal throttling to prevent damage. Photonic room-temperature
        operation helps, but we still need to manage heat from classical
        control electronics.
     
@@ -857,7 +857,7 @@ class ResourceTracker:
             return (False, 
                    f"Insufficient power: job requires {job.power_watts:.1f}W, "
                    f"only {available_power:.1f}W available ({utilization:.1f}% utilized). "
-                   f"Rotonium's low-power QPU helps, but current load is too high.")
+                   f"Photonic low-power QPU helps, but current load is too high.")
         
         # Memory constraint
         if job.memory_mb > available_memory:
@@ -889,7 +889,7 @@ class ResourceTracker:
             return (False,
                    f"Thermal limit exceeded: job generates {job.thermal_output_watts:.1f}W heat, "
                    f"only {available_thermal:.1f}W headroom available ({utilization:.1f}% utilized). "
-                   f"Wait for cooling. Rotonium's room-temp operation eliminates cryogenic "
+                   f"Wait for cooling. Photonic room-temp operation eliminates cryogenic "
                    f"cooling, but we still need to manage classical electronics heat.")
         
         # Timeout constraint
@@ -986,7 +986,7 @@ class ResourceTracker:
 # Example usage and testing
 if __name__ == "__main__":
     print("=" * 70)
-    print("Edge Computing Environment Simulator - Rotonium Quantum Systems")
+    print("Edge Computing Environment Simulator - Photonic Quantum Systems")
     print("=" * 70)
     print()
     
@@ -1153,6 +1153,6 @@ if __name__ == "__main__":
     print()
     print("=" * 70)
     print("ResourceTracker enables intelligent quantum job scheduling on edge devices!")
-    print("Rotonium's room-temperature QPU makes this practical for aerospace,")
+    print("Photonic room-temperature QPU makes this practical for aerospace,")
     print("mobile, and ground server deployments.")
     print("=" * 70)

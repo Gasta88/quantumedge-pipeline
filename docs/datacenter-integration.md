@@ -1,11 +1,11 @@
-# QuiX Quantum Integration Guide
+# Photonic Cloud Integration Guide
 
 ## Table of Contents
 1. [Overview](#overview)
 2. [Architecture](#architecture)
 3. [Quick Start](#quick-start)
 4. [Profile Configuration](#profile-configuration)
-5. [Backend: QuiXCloudBackend](#backend-quixcloudbackend)
+5. [Backend: PhotonicCloudBackend](#backend-photoniccloudbackend)
 6. [Data Center Simulator](#data-center-simulator)
 7. [PUE Energy Model](#pue-energy-model)
 8. [Demo Scenarios](#demo-scenarios)
@@ -16,18 +16,18 @@
 
 ## 1. Overview
 
-QuiX Quantum is a Dutch photonic quantum computing company building silicon-nitride-based universal quantum computers designed for data-center integration. Unlike edge-focused deployments (Rotonium), QuiX targets:
+Photonic Cloud is a photonic quantum computing platform building silicon-nitride-based universal quantum computers designed for data-center integration. Unlike edge-focused deployments, Photonic Cloud targets:
 
 - **HPC clusters** for scientific computing (pharma, materials science)
 - **Data center racks** for enterprise workloads (finance, logistics)
-- **Cloud nodes** for on-demand quantum access (via cloud.quixquantum.com)
+- **Cloud nodes** for on-demand quantum access (via cloud API)
 
-The QuantumEdge Pipeline supports QuiX through the **Target Profiles** architecture, allowing the same codebase to serve both Rotonium edge and QuiX data-center use cases.
+The QuantumEdge Pipeline supports Photonic Cloud through the **Target Profiles** architecture, allowing the same codebase to serve both edge and data-center use cases.
 
 ### Key Differentiators
 
-| Feature | Rotonium (Edge) | QuiX Quantum (Data Center) |
-|---------|----------------|---------------------------|
+| Feature | Photonic QPU (Edge) | Photonic Cloud (Data Center) |
+|---------|---------------------|------------------------------|
 | Deployment | Aerospace, mobile, ground station | HPC, rack, cloud |
 | Energy Model | SWaP (Size, Weight, Power) | PUE (Power Usage Effectiveness) |
 | Key Metric | Battery budget | Throughput / cost per job |
@@ -41,7 +41,7 @@ The QuantumEdge Pipeline supports QuiX through the **Target Profiles** architect
 
 ```
                     ┌─────────────────────────┐
-                    │     profiles/quix.yaml   │
+                    │     profiles/photonic_cloud.yaml   │
                     └────────────┬────────────┘
                                  │
                     ┌────────────▼────────────┐
@@ -51,9 +51,9 @@ The QuantumEdge Pipeline supports QuiX through the **Target Profiles** architect
               ┌──────────────────┼──────────────────┐
               │                  │                   │
     ┌─────────▼─────────┐ ┌─────▼──────┐  ┌────────▼────────┐
-    │ QuiXCloudBackend   │ │ Dashboard  │  │ FastAPI API      │
-    │ src/backends/      │ │ Branding   │  │ /system/info     │
-    │ quix_cloud.py      │ │ Scenarios  │  │ Profile metadata │
+     │ PhotonicCloudBackend   │ │ Dashboard  │  │ FastAPI API      │
+     │ src/backends/          │ │ Branding   │  │ /system/info     │
+     │ photonic_cloud.py      │ │ Scenarios  │  │ Profile metadata │
     └─────────┬─────────┘ │ Metrics    │  └─────────────────┘
               │            └────────────┘
               │
@@ -68,38 +68,38 @@ The QuantumEdge Pipeline supports QuiX through the **Target Profiles** architect
 
 ## 3. Quick Start
 
-### Switch to QuiX profile
+### Switch to Photonic Cloud profile
 
 ```bash
 # Via environment variable
-QUANTUMEDGE_PROFILE=quix streamlit run dashboard/app.py
+QUANTUMEDGE_PROFILE=photonic_cloud streamlit run dashboard/app.py
 
 # Via CLI argument
-streamlit run dashboard/app.py -- --profile quix
+streamlit run dashboard/app.py -- --profile photonic_cloud
 
 # Via Docker
-QUANTUMEDGE_PROFILE=quix docker-compose up -d
+QUANTUMEDGE_PROFILE=photonic_cloud docker-compose up -d
 ```
 
-### Connect to real QuiX hardware
+### Connect to real photonic cloud hardware
 
 ```bash
-export QUIX_API_KEY="your-api-key-here"
-QUANTUMEDGE_PROFILE=quix python -m src.api.main
+export PHOTONIC_CLOUD_API_KEY="your-api-key-here"
+QUANTUMEDGE_PROFILE=photonic_cloud python -m src.api.main
 ```
 
-Without `QUIX_API_KEY`, the backend runs in **mock mode** producing simulated results with realistic response shapes.
+Without `PHOTONIC_CLOUD_API_KEY`, the backend runs in **mock mode** producing simulated results with realistic response shapes.
 
 ---
 
 ## 4. Profile Configuration
 
-The QuiX profile is defined in `profiles/quix.yaml`:
+The Photonic Cloud profile is defined in `profiles/photonic_cloud.yaml`:
 
 ```yaml
-name: "QuiX Quantum"
+name: "Photonic Cloud"
 tagline: "Data Center Quantum Computing - Silicon Nitride Photonic"
-hardware_backend: "quix_cloud"
+hardware_backend: "photonic_cloud"
 
 deployment_profiles:
   primary: "hpc_cluster"
@@ -118,24 +118,24 @@ energy_model:
 
 ---
 
-## 5. Backend: QuiXCloudBackend
+## 5. Backend: PhotonicCloudBackend
 
-Located at `src/backends/quix_cloud.py`, this backend implements the `QuantumBackend` ABC with two modes:
+Located at `src/backends/photonic_cloud.py`, this backend implements the `QuantumBackend` ABC with two modes:
 
 ### Mock Mode (default)
-When no `QUIX_API_KEY` is set, the backend generates realistic simulated results locally. This is suitable for demos, testing, and development.
+When no `PHOTONIC_CLOUD_API_KEY` is set, the backend generates realistic simulated results locally. This is suitable for demos, testing, and development.
 
 ### Real Mode
-When `QUIX_API_KEY` is set, the backend connects to `https://cloud.quixquantum.com/api` using `httpx` for async HTTP requests.
+When `PHOTONIC_CLOUD_API_KEY` is set, the backend connects to the photonic cloud API using `httpx` for async HTTP requests.
 
 ```python
 from src.backends import create_backend
 
 # Mock mode
-backend = create_backend("quix_cloud")
+backend = create_backend("photonic_cloud")
 
 # Real mode
-backend = create_backend("quix_cloud", api_key="your-key")
+backend = create_backend("photonic_cloud", api_key="your-key")
 
 # Submit a job
 job_id = backend.submit_job(circuit, shots=1024)
@@ -147,7 +147,7 @@ result = backend.get_job_result(job_id)
 ```python
 >>> backend.get_hardware_specs()
 {
-    "provider": "QuiX Quantum",
+    "provider": "Photonic Cloud",
     "technology": "Silicon Nitride Photonic",
     "max_qubits": 20,
     "clock_speed_mhz": 100,
@@ -192,7 +192,7 @@ PUE = Total Facility Power / IT Equipment Power
 - **PUE 1.4** = average data center
 - **PUE 2.0** = inefficient legacy facility
 
-The QuiX energy model applies PUE to all energy estimates:
+The Photonic Cloud energy model applies PUE to all energy estimates:
 
 ```python
 raw_energy_mj = 10.0
@@ -200,21 +200,21 @@ pue_adjusted = env.calculate_pue_adjusted_energy(raw_energy_mj)
 # With PUE 1.3: pue_adjusted = 13.0 mJ
 ```
 
-This contrasts with Rotonium's SWaP (Size, Weight, Power) model which focuses on battery budget for edge devices.
+This contrasts with the Photonic QPU's SWaP (Size, Weight, Power) model which focuses on battery budget for edge devices.
 
 ---
 
 ## 8. Demo Scenarios
 
-Three QuiX-specific scenarios are included:
+Three Photonic Cloud-specific scenarios are included:
 
 | Scenario | Problem | Size | Profile | Source |
 |----------|---------|------|---------|--------|
-| Drug Discovery Sampling | MaxCut | 50 | HPC Cluster | `examples/scenarios/quix/pharma_optimization.json` |
-| Financial Risk Modeling | Portfolio | 40 | Datacenter Rack | `examples/scenarios/quix/portfolio_risk.json` |
-| Hydrology Simulation | MaxCut | 45 | Cloud Node | `examples/scenarios/quix/hydrology.json` |
+| Drug Discovery Sampling | MaxCut | 50 | HPC Cluster | `examples/scenarios/photonic_cloud/pharma_optimization.json` |
+| Financial Risk Modeling | Portfolio | 40 | Datacenter Rack | `examples/scenarios/photonic_cloud/portfolio_risk.json` |
+| Hydrology Simulation | MaxCut | 45 | Cloud Node | `examples/scenarios/photonic_cloud/hydrology.json` |
 
-These scenarios are automatically shown in the dashboard when the QuiX profile is active.
+These scenarios are automatically shown in the dashboard when the Photonic Cloud profile is active.
 
 ---
 
@@ -228,9 +228,9 @@ curl http://localhost:8000/api/v1/system/info | jq '.configuration.active_profil
 
 ```json
 {
-  "name": "QuiX Quantum",
+  "name": "Photonic Cloud",
   "tagline": "Data Center Quantum Computing - Silicon Nitride Photonic",
-  "hardware_backend": "quix_cloud",
+  "hardware_backend": "photonic_cloud",
   "deployment_profiles": ["hpc_cluster", "datacenter_rack", "cloud_node"],
   "energy_model": "PUE"
 }
@@ -244,18 +244,18 @@ curl http://localhost:8000/api/v1/system/info | jq '.configuration.active_profil
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `QUANTUMEDGE_PROFILE` | No | Set to `quix` to activate QuiX profile (default: `default`) |
-| `QUIX_API_KEY` | For real hardware | API key from cloud.quixquantum.com |
+| `QUANTUMEDGE_PROFILE` | No | Set to `photonic_cloud` to activate Photonic Cloud profile (default: `default`) |
+| `PHOTONIC_CLOUD_API_KEY` | For real hardware | API key from photonic cloud service |
 
 ### Docker Compose
 
 ```bash
-# Deploy with QuiX profile
-QUANTUMEDGE_PROFILE=quix QUIX_API_KEY=your-key docker-compose up -d
+# Deploy with Photonic Cloud profile
+QUANTUMEDGE_PROFILE=photonic_cloud PHOTONIC_CLOUD_API_KEY=your-key docker-compose up -d
 ```
 
 ### Security Notes
 
-- Never commit `QUIX_API_KEY` to version control
+- Never commit `PHOTONIC_CLOUD_API_KEY` to version control
 - Use `.env` file or secrets manager for API keys
-- The `QuiXCloudBackend` gracefully falls back to mock mode if no key is set
+- The `PhotonicCloudBackend` gracefully falls back to mock mode if no key is set

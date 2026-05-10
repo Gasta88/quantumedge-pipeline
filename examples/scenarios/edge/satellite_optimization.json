@@ -10,5 +10,5 @@
   "edge_profile": "aerospace",
   "strategy": "energy_optimized",
   "comparative_mode": true,
-  "context": "Satellites must visit ground stations in an optimal sequence during limited contact windows. The TSP formulation finds the shortest orbital transfer sequence subject to power and thermal limits of the onboard Rotonium QPU."
+  "context": "Satellites must visit ground stations in an optimal sequence during limited contact windows. The TSP formulation finds the shortest orbital transfer sequence subject to power and thermal limits of the onboard photonic QPU."
 }

@@ -44,7 +44,7 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       # Company profile selection
       QUANTUMEDGE_PROFILE: ${QUANTUMEDGE_PROFILE:-default}
-      QUIX_API_KEY: ${QUIX_API_KEY:-}
+      QUANTUM_CLOUD_API_KEY: ${QUANTUM_CLOUD_API_KEY:-}
     env_file:
       - .env
     ports:
@@ -91,7 +91,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-qe_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-qe_pass}
       QUANTUMEDGE_PROFILE: ${QUANTUMEDGE_PROFILE:-default}
-      QUIX_API_KEY: ${QUIX_API_KEY:-}
+      QUANTUM_CLOUD_API_KEY: ${QUANTUM_CLOUD_API_KEY:-}
     env_file:
       - .env
     ports:

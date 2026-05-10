@@ -7,9 +7,9 @@ variable (QUANTUMEDGE_PROFILE), with fallback to 'default'.
 
 Usage:
     >>> from src.profile_loader import load_profile, get_active_profile
-    >>> profile = load_profile("rotonium")
-    >>> print(profile.name)       # "Rotonium"
-    >>> print(profile.tagline)    # "Edge Quantum Computing - OAM Photonic QPU"
+    >>> profile = load_profile("edge")
+    >>> print(profile.name)       # "Edge Photonics"
+    >>> print(profile.tagline)    # "Edge Quantum Computing - Photonic QPU"
 
     # Or use the auto-detected active profile
     >>> profile = get_active_profile()

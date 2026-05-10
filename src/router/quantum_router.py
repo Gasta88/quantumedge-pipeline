@@ -202,7 +202,7 @@ class QuantumRouter:
     **For Quantum Solvers (Simulators)**:
     - Potential advantage for medium-size problems (10-50 variables)
     - Can explore exponentially large solution spaces
-    - Rotonium's room-temp QPU enables edge deployment
+    - Photonic QPU enables edge deployment at room temperature
     - BUT: Simulation overhead, qubit limitations, requires more resources
     
     **For Hybrid Approaches**:
@@ -216,17 +216,16 @@ class QuantumRouter:
     - User preferences (speed, quality, energy efficiency)
     - Predicted performance (runtime, energy, solution quality)
     
-    Rotonium Technology Advantages:
+    Photonic Technology Advantages:
     -------------------------------
     Traditional quantum computers need cryogenic cooling (1000+ watts),
-    making them impractical for edge deployment. Rotonium's room-temperature
-    molecular quantum processor:
-    - Operates at ambient temperature (no cryogenics!)
-    - Consumes < 50 watts (battery-friendly)
+    making them impractical for edge deployment. Photonic quantum processors:
+    - Operate at ambient temperature (no cryogenics!)
+    - Consume < 50 watts (battery-friendly)
     - Compact form factor (fits in edge devices)
-    - Enables aerospace, mobile, and ground server quantum computing
+    - Enable aerospace, mobile, and ground server quantum computing
     
-    This router optimizes for Rotonium's unique characteristics, enabling
+    This router optimizes for photonic QPU characteristics, enabling
     practical quantum computing in resource-constrained environments.
     
     Attributes:
@@ -289,7 +288,7 @@ class QuantumRouter:
         - Prefers quantum if energy/solution ratio is lower
         - Best for: Battery-powered edge devices (aerospace, mobile)
         - Trade-off: May accept slightly longer runtime for energy savings
-        - Rotonium advantage: Room-temp QPU often more efficient than classical
+        - Photonic advantage: Room-temp QPU often more efficient than classical
         
         **LATENCY_OPTIMIZED**:
         - Prioritizes minimizing execution time
@@ -499,7 +498,7 @@ class QuantumRouter:
                 reasoning = (
                     f"ENERGY_OPTIMIZED strategy: Quantum solver uses {pct_savings:.1f}% "
                     f"less energy ({quantum_energy:.1f}mJ vs {classical_energy:.1f}mJ). "
-                    f"Critical for battery-powered edge devices. Rotonium's room-temp QPU "
+                    f"Critical for battery-powered edge devices. Photonic QPU "
                     f"advantage is maximized in energy-constrained scenarios."
                 )
             elif score_diff < -0.5:
@@ -958,7 +957,7 @@ class QuantumRouter:
             
             reasoning = (
                 f"Quantum solver exceeds {constraint} for {edge_env.profile.value} deployment. "
-                f"Rotonium's room-temp QPU eliminates cryogenic cooling, but edge environments "
+                f"Photonic QPU eliminates cryogenic cooling, but edge environments "
                 f"still have power, memory, and thermal constraints. Classical solver is only option."
             )
             confidence = 1.0  # Certain (no choice)
@@ -1030,7 +1029,7 @@ class QuantumRouter:
                 reasoning = (
                     f"Quantum solver predicted to have advantage ({reason_detail}). "
                     f"Problem size ({problem_size}) in quantum sweet spot (10-100 variables). "
-                    f"Rotonium's room-temp QPU enables efficient quantum computation on edge device."
+                    f"Photonic QPU enables efficient quantum computation on edge device."
                 )
                 confidence = 0.6 + (quantum_advantage_prob - 0.6) * 0.5  # 0.6-0.8 range
                 
@@ -1056,7 +1055,7 @@ class QuantumRouter:
                 reasoning = (
                     f"Power-constrained {edge_env.profile.value} deployment prioritizes energy efficiency. "
                     f"Quantum solver uses less energy ({quantum_energy_mj:.2f}mJ vs {classical_energy_mj:.2f}mJ). "
-                    f"Critical for battery-powered edge devices. Rotonium's low-power QPU (<50W) "
+                    f"Critical for battery-powered edge devices. Photonic low-power QPU (<50W) "
                     f"enables longer battery life compared to classical computation."
                 )
                 confidence = 0.70
@@ -1248,7 +1247,7 @@ class QuantumRouter:
             REASONING:
             Quantum solver predicted to have advantage (quantum is faster (2.145s vs 5.234s)).
             Problem size (30) in quantum sweet spot (10-100 variables).
-            Rotonium's room-temp QPU enables efficient quantum computation on edge device.
+            Photonic room-temp QPU enables efficient quantum computation on edge device.
             ...
         
         Notes:
@@ -1452,7 +1451,7 @@ class QuantumRouter:
                 'recommendation': (
                     'Consider if speed or solution quality improvements justify increased power consumption. '
                     'For battery-powered devices, evaluate impact on battery life. '
-                    'Rotonium QPU already optimized for low power, but larger problems need more resources.'
+                    'Photonic QPU already optimized for low power, but larger problems need more resources.'
                 )
             })
         
@@ -1568,7 +1567,7 @@ class QuantumRouter:
                 'feasibility': 'easy',
                 'recommendation': (
                     'Strongly recommended for battery-powered edge devices (aerospace, mobile). '
-                    'Rotonium QPU power efficiency (<50W) vs classical processing can significantly extend '
+                    'Photonic QPU power efficiency (<50W) vs classical processing can significantly extend '
                     'mission duration. Small time trade-off for major energy savings.'
                 )
             })
@@ -2196,7 +2195,7 @@ class QuantumRouter:
         - Storage for circuits and results
         
         For real quantum hardware (future):
-        - Lower power (Rotonium: <50W total)
+        - Lower power (photonic: <50W total)
         - Lower memory (only circuit description, not state)
         - Faster execution (no simulation overhead)
         
@@ -2212,7 +2211,7 @@ class QuantumRouter:
         runtime_s = analysis['estimated_quantum_runtime']
         
         # Power: Quantum simulation is computationally intensive
-        # Rotonium QPU: <50W, but simulation needs classical computer
+        # Photonic QPU: <50W, but simulation needs classical computer
         # For real hardware, this would be much lower (~30-50W total)
         if problem_size < 20:
             power_watts = 30.0  # Small circuits, manageable simulation
@@ -2234,7 +2233,7 @@ class QuantumRouter:
         storage_gb = 0.5 + (problem_size / 100)
         
         # Thermal output: Similar to power (efficient quantum simulation)
-        # Rotonium's room-temp operation eliminates cryogenic cooling heat!
+        # Photonic room-temp operation eliminates cryogenic cooling heat!
         thermal_output_watts = power_watts * 0.85
         
         # Bandwidth: May need to fetch circuits or upload results
@@ -2309,6 +2308,6 @@ if __name__ == "__main__":
     
     print("\n" + "=" * 80)
     print("QuantumRouter enables intelligent quantum-classical routing for edge devices!")
-    print("Rotonium's room-temperature QPU makes quantum computing practical in")
+    print("Photonic room-temperature QPU makes quantum computing practical in")
     print("resource-constrained environments (aerospace, mobile, ground server).")
     print("=" * 80)
