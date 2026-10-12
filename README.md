@@ -12,7 +12,7 @@
 
 Organizations need **practical tools** to evaluate, integrate, and deploy quantum solutions across very different environments. QuantumEdge Pipeline now supports multiple company targets via profile-driven configuration:
 
--  **Proving viability early**: Demonstrates quantum advantage in both edge and data-center scenarios before hardware is available
+-  **Proving viability early**: Explores, in simulation, where quantum or hybrid solvers could be competitive in edge and data-center scenarios before hardware is available
 -  **Reducing integration time**: Provides APIs and workflows for quantum-classical hybrid systems with pluggable backends
 -  **Profile-aware architecture**: Optimized for the active deployment profile (edge SWaP vs. data-center PUE)
 -  **Hardware-agnostic design**: Seamlessly transitions from simulation to real quantum hardware through the new backend interface
@@ -50,6 +50,13 @@ export QUANTUM_CLOUD_API_KEY="your-real-api-key"   # Optional; enables real hard
 Profiles live in the new `profiles/` directory and are loaded by `src/profile_loader.py`. Each profile controls deployment options, demo scenarios, docs links, and which backend implementation is instantiated.
 
 ---
+
+## Limitations
+
+- **Simulation and mock only**: All quantum results come from classical simulation (PennyLane) or mock backends. No real quantum hardware is used.
+- **20-qubit backend cap**: The simulator is limited to ~20 qubits due to classical memory constraints. Real quantum advantage studies require larger systems.
+- **No hardware validation**: Energy models, photonic characteristics, and performance comparisons use assumed or literature-derived parameters. They have not been validated against physical devices.
+- **Parametric energy models**: Power and energy estimates are based on simplified parametric models, not direct measurement. See the [Limitations section in quantum-basics.md](docs/quantum-basics.md#limitations-of-simulation) for details.
 
 ##  Quick Start
 
@@ -138,7 +145,7 @@ Once services are running:
 │      │                                                        │
 │  ┌───▼─────────────────────────────────────────────────────┐  │
 │  │          Quantum Router                                 │  │
-│  │  (ML-based routing decision engine)                     │  │
+│  │  (heuristic multi-factor routing engine)                     │  │
 │  └───┬─────────────────────┬─────────────────────┬─────────┘  │
 └──────┼─────────────────────┼─────────────────────┼────────────┘
        │                     │                     │
@@ -164,7 +171,7 @@ Once services are running:
 - Supports: MaxCut, TSP, Portfolio Optimization, Graph Partitioning
 
 #### 2. **Quantum Router** (`src/router/`)
-- ML-based decision engine for solver selection
+- Heuristic multi-factor solver selection with history-based threshold tuning
 - Evaluates: problem size, hardware constraints, time budgets
 - Routes to: Classical, Quantum, or Hybrid approaches
 - Provides confidence scores and reasoning for decisions
@@ -281,7 +288,7 @@ QuantumEdge Pipeline showcases and accelerates **photonic quantum processors** i
 - **Edge SWaP Optimization**: Designed for Size, Weight, and Power constrained environments
 
 #### 2. **Edge Deployment Focus**
-The pipeline demonstrates photonic computing's competitive advantage in:
+The pipeline explores, in simulation, where photonic computing could be competitive in:
 - **Aerospace Applications**: Flight path optimization, satellite constellation routing
 - **Defense Applications**: Secure tactical optimization at the edge
 - **Mobile Edge Computing**: 5G/6G network optimization with quantum acceleration
@@ -336,12 +343,12 @@ result = solver.submit_job(problem)
 | Benefit | Description |
 |---------|-------------|
 | **Reduced Integration Time** | Pre-built workflows and APIs ready for production |
-| **Early Viability Proof** | Demonstrate quantum advantage before hardware deployment |
+| **Early Viability Proof** | Estimate quantum/hybrid viability in simulation before hardware deployment |
 | **Developer-Friendly Tools** | Familiar REST APIs, Python SDKs, Docker deployment |
 | **Ecosystem Readiness** | Compatible with existing quantum frameworks (PennyLane, qiskit-ibm-runtime) |
 | **Competitive Benchmarking** | Side-by-side comparison with IBM, Rigetti, D-Wave |
 
-### Competitive Advantages: Photonic vs. Cryogenic
+### Modelled Trade-offs: Photonic vs. Cryogenic (assumed parameters)
 
 | Aspect | Photonic | Cryogenic Systems |
 |--------|---------------------|-------------------|
@@ -401,7 +408,7 @@ The Streamlit dashboard includes pre-configured demo scenarios that automaticall
 - 40 waypoints representing drone coordination zones
 - 25% edge probability (sparse graph for efficient routing)
 - Power constraints (battery-powered UAVs)
-- Quantum advantage demonstrated for energy-constrained scenarios
+- Illustrates routing under energy constraints (simulated)
 
 **Expected Results**:
 - Classical solver: Fast but higher power consumption
@@ -598,7 +605,7 @@ docker-compose exec api python scripts/benchmark_solvers.py --csv benchmark_resu
 **Benchmark Features:**
 - Compares Classical (Greedy, Simulated Annealing) vs Quantum (QAOA) solvers
 - Measures execution time, energy consumption, and solution quality
-- Identifies problem sizes where quantum advantage emerges
+- Compares solvers across problem sizes (simulated QAOA vs classical baselines)
 - Generates CSV reports, visualizations, and markdown summaries
 - Results stored in `benchmark_results/` directory
 

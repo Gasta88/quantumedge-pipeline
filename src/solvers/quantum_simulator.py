@@ -66,6 +66,11 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+# Assumed, order-of-magnitude reference for superconducting (cryogenic) systems.
+# Includes dilution refrigerator + control electronics (~10-20 kW).
+# See docs/quantum-basics.md#limitations-of-simulation.
+SUPERCONDUCTING_REFERENCE_POWER_W = 15000.0  # assumed, order-of-magnitude
+
 
 class QuantumSimulatorException(SolverException):
     """Exception raised when quantum simulation fails."""
@@ -1883,7 +1888,7 @@ class QuantumSimulator(SolverBase):
         )
         
         # Compare to superconducting (would need ~10-20 kW for dilution fridge)
-        superconducting_equivalent_power_w = 15000.0  # 15 kW typical
+        superconducting_equivalent_power_w = SUPERCONDUCTING_REFERENCE_POWER_W
         power_advantage_factor = superconducting_equivalent_power_w / total_system_power_w
         
         characteristics = {
@@ -1900,6 +1905,7 @@ class QuantumSimulator(SolverBase):
             'total_system_power_w': total_system_power_w,
             'superconducting_equivalent_power_w': superconducting_equivalent_power_w,
             'power_advantage_factor': power_advantage_factor,
+            'estimate_basis': 'illustrative — assumed constants, not measured',
             'wavelength_nm': wavelength_nm,
             'photon_energy_ev': photon_energy_ev,
         }
@@ -1908,7 +1914,7 @@ class QuantumSimulator(SolverBase):
             f"Room temperature operation: "
             f"T={operating_temp_k}K, "
             f"Power={total_system_power_w:.2f}W, "
-            f"Advantage={power_advantage_factor:.0f}×"
+            f"Estimated power ratio={power_advantage_factor:.0f}× (assumed baseline)"
         )
         
         return characteristics
@@ -2170,8 +2176,7 @@ class QuantumSimulator(SolverBase):
         thermal_energy_mj = total_energy_mj * thermal_fraction
         
         # Compare to superconducting system
-        # Superconducting: ~16 kW for similar qubit count
-        superconducting_power_w = 16000.0
+        superconducting_power_w = SUPERCONDUCTING_REFERENCE_POWER_W
         superconducting_energy_j = superconducting_power_w * total_time_s
         superconducting_energy_mj = superconducting_energy_j * 1000
         
@@ -2191,11 +2196,12 @@ class QuantumSimulator(SolverBase):
             'total_time_s': float(total_time_s),
             'superconducting_equivalent_mj': float(superconducting_energy_mj),
             'energy_advantage_factor': float(energy_advantage),
+            'estimate_basis': 'illustrative — assumed constants, not measured',
         }
         
         logger.debug(
             f"Photonic energy: {total_energy_mj:.2f} mJ "
-            f"({energy_advantage:.0f}× better than superconducting)"
+            f"(estimated {energy_advantage:.0f}× vs assumed superconducting baseline)"
         )
         
         return energy_breakdown

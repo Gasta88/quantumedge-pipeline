@@ -518,7 +518,7 @@ class ProblemAnalyzer:
         # Factor 1: Problem type
         # Some problems are known to benefit more from quantum approaches
         problem_type_scores = {
-            'maxcut': 0.7,      # Strong quantum advantage demonstrated
+            'maxcut': 0.7,      # MaxCut is a standard QAOA benchmark
             'tsp': 0.5,         # Mixed results, problem-dependent
             'portfolio': 0.3,   # Classical convex optimization is very efficient
             'graph_coloring': 0.6,  # Quantum annealing shows promise

@@ -156,10 +156,10 @@ def calculate_edge_suitability(solver: Solver, constraints: EdgeConstraints) -> 
         deploy_score = 1.0 # Minutes vs days
         mobility_score = 1.0  # Portable vs fixed
     elif isinstance(solver, CryogenicQuantumSolver):
-        power_score = 0.01   # 100x more power
-        size_score = 0.001   # 1000x larger footprint
-        deploy_score = 0.1   # 10x slower deployment
-        mobility_score = 0.0 # Not portable
+        power_score = 0.01   # 100x more power (illustrative, assumed)
+        size_score = 0.001   # 1000x larger footprint (illustrative, assumed)
+        deploy_score = 0.1   # 10x slower deployment (illustrative, assumed)
+        mobility_score = 0.0 # Not portable (illustrative, assumed)
     
     edge_score = (
         0.4 * power_score +      # Power is critical for edge

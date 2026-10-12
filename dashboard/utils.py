@@ -533,7 +533,7 @@ def create_performance_heatmap(
     """
     Create heatmap of performance across problem sizes and solver types.
     
-    Color represents execution time, with quantum advantage zones highlighted.
+    Color represents execution time, with zones where quantum may be faster highlighted.
     
     Parameters
     ----------
@@ -564,7 +564,7 @@ def create_performance_heatmap(
         for size in size_range:
             # Classical grows linearly
             performance_data[(size, 'classical')] = size * 2
-            # Quantum has advantage at larger sizes
+            # Quantum may become competitive at larger sizes
             performance_data[(size, 'quantum')] = size * 3 if size < 30 else size * 1.5
     
     # Build matrix

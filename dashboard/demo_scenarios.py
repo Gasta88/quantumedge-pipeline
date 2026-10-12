@@ -78,14 +78,15 @@ DEMO_SCENARIOS: Dict[str, Dict[str, Any]] = {
         - Real-time decision-making is critical for safety
         
         **Expected Outcome:**
-        Quantum solver may offer energy advantages for this problem size,
+        Quantum solver may offer energy benefits for this problem size
+        (simulated estimates; see Limitations in README),
         making it viable for battery-powered edge deployment.
         """,
         "expected_routing": {
             "preferred_solver": "quantum",
             "reasoning": "Energy-optimized strategy with power constraints favors quantum for this size",
             "key_factors": [
-                "Problem size (40 nodes) is in quantum advantage zone",
+                "Problem size (40 nodes) is in the zone where quantum could be competitive",
                 "Aerospace power budget (50W) is tight",
                 "Energy strategy prioritizes lower power consumption",
                 "Graph density allows efficient quantum encoding",
@@ -170,7 +171,7 @@ DEMO_SCENARIOS: Dict[str, Dict[str, Any]] = {
         
         **Expected Outcome:**
         Balanced strategy on mobile profile will make nuanced trade-off between
-        quantum quality benefits and classical speed advantages.
+        quantum and classical approaches.
         """,
         "expected_routing": {
             "preferred_solver": "mixed",
@@ -218,7 +219,7 @@ DEMO_SCENARIOS: Dict[str, Dict[str, Any]] = {
             "key_factors": [
                 "HPC cluster has high power budget (5000W)",
                 "Quality strategy prioritises solution superiority",
-                "50 nodes is suitable for quantum advantage zone",
+                "50 nodes is in a range where quantum may be competitive",
                 "Pharma applications benefit from quantum sampling diversity",
             ],
         },
@@ -249,7 +250,7 @@ DEMO_SCENARIOS: Dict[str, Dict[str, Any]] = {
         """,
         "expected_routing": {
             "preferred_solver": "quantum",
-            "reasoning": "Portfolio sampling benefits from quantum advantage in data-center setting",
+            "reasoning": "Portfolio sampling may benefit from quantum approaches in data-center setting",
             "key_factors": [
                 "Ground server / datacenter rack has ample resources",
                 "40 assets is moderate size for quantum portfolio optimisation",
