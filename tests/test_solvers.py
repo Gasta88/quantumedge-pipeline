@@ -292,15 +292,17 @@ class TestPortfolioSolver:
             assert 'time_ms' in result
             assert 'energy_mj' in result
             
-            # Solution should be weights (continuous values)
-            assert len(result['solution']) == portfolio_problem.num_assets
-            
-            # Weights should sum to approximately 1
-            assert abs(sum(result['solution']) - 1.0) < 0.01
-            
-            # All weights should be non-negative (no short selling)
-            assert all(w >= -0.001 for w in result['solution'])  # Small tolerance for numerical precision
-            
+            # PortfolioProblem uses binary cardinality selection, so the
+            # solver returns a 0/1 mask of the selected assets.
+            solution = result['solution']
+            assert len(solution) == portfolio_problem.num_assets
+
+            # Exactly num_selected assets must be selected
+            assert sum(solution) == portfolio_problem.num_selected
+
+            # Selection must be binary (no partial weights, no short selling)
+            assert all(value in (0, 1) for value in solution)
+
         except ImportError:
             pytest.skip("SciPy not installed")
     
@@ -309,8 +311,8 @@ class TestPortfolioSolver:
         solver = ClassicalSolver(default_method='auto')
         
         try:
-            # Note: PortfolioProblem uses binary selection, so we test the solver logic
-            # The solver should handle continuous weights
+            # PortfolioProblem uses binary cardinality selection; the solver
+            # optimizes continuous weights internally then returns a 0/1 mask.
             result = solver.solve(
                 portfolio_problem,
                 method='scipy'

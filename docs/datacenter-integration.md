@@ -41,7 +41,7 @@ The QuantumEdge Pipeline supports Photonic Cloud through the **Target Profiles**
 
 ```
                     ┌─────────────────────────┐
-                    │     profiles/photonic_cloud.yaml   │
+                    │     profiles/datacenter.yaml   │
                     └────────────┬────────────┘
                                  │
                     ┌────────────▼────────────┐
@@ -72,33 +72,33 @@ The QuantumEdge Pipeline supports Photonic Cloud through the **Target Profiles**
 
 ```bash
 # Via environment variable
-QUANTUMEDGE_PROFILE=photonic_cloud streamlit run dashboard/app.py
+QUANTUMEDGE_PROFILE=datacenter streamlit run dashboard/app.py
 
 # Via CLI argument
-streamlit run dashboard/app.py -- --profile photonic_cloud
+streamlit run dashboard/app.py -- --profile datacenter
 
 # Via Docker
-QUANTUMEDGE_PROFILE=photonic_cloud docker-compose up -d
+QUANTUMEDGE_PROFILE=datacenter docker-compose up -d
 ```
 
 ### Connect to real photonic cloud hardware
 
 ```bash
-export PHOTONIC_CLOUD_API_KEY="your-api-key-here"
-QUANTUMEDGE_PROFILE=photonic_cloud python -m src.api.main
+export QUANTUM_CLOUD_API_KEY="your-api-key-here"
+QUANTUMEDGE_PROFILE=datacenter python -m src.api.main
 ```
 
-Without `PHOTONIC_CLOUD_API_KEY`, the backend runs in **mock mode** producing simulated results with realistic response shapes.
+Without `QUANTUM_CLOUD_API_KEY`, the backend runs in **mock mode** producing simulated results with realistic response shapes.
 
 ---
 
 ## 4. Profile Configuration
 
-The Photonic Cloud profile is defined in `profiles/photonic_cloud.yaml`:
+The Photonic Cloud profile is defined in `profiles/datacenter.yaml`:
 
 ```yaml
-name: "Photonic Cloud"
-tagline: "Data Center Quantum Computing - Silicon Nitride Photonic"
+name: "Data Center Photonics"
+tagline: "Data Center Quantum Computing - Photonic"
 hardware_backend: "photonic_cloud"
 
 deployment_profiles:
@@ -123,10 +123,10 @@ energy_model:
 Located at `src/backends/photonic_cloud.py`, this backend implements the `QuantumBackend` ABC with two modes:
 
 ### Mock Mode (default)
-When no `PHOTONIC_CLOUD_API_KEY` is set, the backend generates realistic simulated results locally. This is suitable for demos, testing, and development.
+When no `QUANTUM_CLOUD_API_KEY` is set, the backend generates realistic simulated results locally. This is suitable for demos, testing, and development.
 
 ### Real Mode
-When `PHOTONIC_CLOUD_API_KEY` is set, the backend connects to the photonic cloud API using `httpx` for async HTTP requests.
+When `QUANTUM_CLOUD_API_KEY` is set, the backend connects to the photonic cloud API using `httpx` for async HTTP requests.
 
 ```python
 from src.backends import create_backend
@@ -210,9 +210,9 @@ Three Photonic Cloud-specific scenarios are included:
 
 | Scenario | Problem | Size | Profile | Source |
 |----------|---------|------|---------|--------|
-| Drug Discovery Sampling | MaxCut | 50 | HPC Cluster | `examples/scenarios/photonic_cloud/pharma_optimization.json` |
-| Financial Risk Modeling | Portfolio | 40 | Datacenter Rack | `examples/scenarios/photonic_cloud/portfolio_risk.json` |
-| Hydrology Simulation | MaxCut | 45 | Cloud Node | `examples/scenarios/photonic_cloud/hydrology.json` |
+| Drug Discovery Sampling | MaxCut | 50 | HPC Cluster | `examples/scenarios/datacenter/pharma_optimization.json` |
+| Financial Risk Modeling | Portfolio | 40 | Datacenter Rack | `examples/scenarios/datacenter/portfolio_risk.json` |
+| Hydrology Simulation | MaxCut | 45 | Cloud Node | `examples/scenarios/datacenter/hydrology.json` |
 
 These scenarios are automatically shown in the dashboard when the Photonic Cloud profile is active.
 
@@ -244,18 +244,18 @@ curl http://localhost:8000/api/v1/system/info | jq '.configuration.active_profil
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `QUANTUMEDGE_PROFILE` | No | Set to `photonic_cloud` to activate Photonic Cloud profile (default: `default`) |
-| `PHOTONIC_CLOUD_API_KEY` | For real hardware | API key from photonic cloud service |
+| `QUANTUMEDGE_PROFILE` | No | Set to `datacenter` to activate the Data Center profile (default: `default`) |
+| `QUANTUM_CLOUD_API_KEY` | For real hardware | API key from photonic cloud service |
 
 ### Docker Compose
 
 ```bash
 # Deploy with Photonic Cloud profile
-QUANTUMEDGE_PROFILE=photonic_cloud PHOTONIC_CLOUD_API_KEY=your-key docker-compose up -d
+QUANTUMEDGE_PROFILE=datacenter QUANTUM_CLOUD_API_KEY=your-key docker-compose up -d
 ```
 
 ### Security Notes
 
-- Never commit `PHOTONIC_CLOUD_API_KEY` to version control
+- Never commit `QUANTUM_CLOUD_API_KEY` to version control
 - Use `.env` file or secrets manager for API keys
 - The `PhotonicCloudBackend` gracefully falls back to mock mode if no key is set
