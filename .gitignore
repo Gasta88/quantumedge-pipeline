@@ -29,7 +29,6 @@ venv/
 ENV/
 env/
 .venv
-poetry.lock
 .poetry/
 
 # PyCharm
