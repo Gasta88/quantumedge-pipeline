@@ -1,6 +1,12 @@
 # QuantumEdge Pipeline
 
+[![CI](https://github.com/Gasta88/quantumedge-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/Gasta88/quantumedge-pipeline/actions/workflows/ci.yml)
+
 > **Status Legend**: ✅ = Fully Implemented & Tested | 🚧 = Interface Ready, Requires External Resources/SDK
+>
+> **Project status**: research and development prototype. Quantum results are simulated (PennyLane) or mocked; no real quantum hardware is used. See [Limitations](#limitations).
+>
+> **Tests**: 130 passing on Python 3.10/3.11, ~49% line coverage (CI gate: 45%).
 
 ## Overview
 
@@ -67,7 +73,7 @@ For use of Makefile commands, see [**docs/quickstart.md**](docs/quickstart.md)
 Before you begin, ensure you have the following installed:
 
 - **Docker** (20.10+) and **Docker Compose** (2.0+)
-- **Python** 3.9+ (for local development)
+- **Python** 3.10+ (for local development; the Docker image uses 3.11 and CI runs 3.10/3.11)
 - **Poetry** (for dependency management)
 - **Git** (for version control)
 
@@ -338,15 +344,14 @@ result = solver.submit_job(problem)
 - 🚧 Requires actual SDK integration (qiskit-ibm-runtime, AWS Braket SDK, Photonic SDK)
 - 🚧 Requires hardware access credentials and accounts
 
-#### 4. **Value Proposition for Customers**
+#### 4. **Intended Use**
 
-| Benefit | Description |
-|---------|-------------|
-| **Reduced Integration Time** | Pre-built workflows and APIs ready for production |
-| **Early Viability Proof** | Estimate quantum/hybrid viability in simulation before hardware deployment |
-| **Developer-Friendly Tools** | Familiar REST APIs, Python SDKs, Docker deployment |
-| **Ecosystem Readiness** | Compatible with existing quantum frameworks (PennyLane, qiskit-ibm-runtime) |
-| **Competitive Benchmarking** | Side-by-side comparison with IBM, Rigetti, D-Wave |
+This repository is a research and development prototype for evaluating hybrid
+quantum-classical routing, benchmarking and integration planning in simulation.
+It is not production software: quantum results come from PennyLane simulation or
+mock backends, and the energy models are parametric estimates rather than
+hardware measurements. The deployment profiles are configuration examples, not
+customer deployments.
 
 ### Modelled Trade-offs: Photonic vs. Cryogenic (assumed parameters)
 
@@ -359,7 +364,7 @@ result = solver.submit_job(problem)
 | **Edge Suitability** | Excellent | Impractical |
 | **Maintenance** | Minimal | Complex cryogenic systems |
 
-For detailed integration guide, see [**docs/edge-photonic-integration.md**](docs/edge-photonic-integration.md)
+For detailed integration guide, see [**docs/edge-integration.md**](docs/edge-integration.md)
 
 ---
 
@@ -488,93 +493,116 @@ The Streamlit dashboard includes pre-configured demo scenarios that automaticall
 
 ```
 quantumedge-pipeline/
-├── profiles/                    # Deployment profiles (edge, datacenter, default)
-├── src/                          # Main source code
+├── profiles/                        # Deployment profiles
+│   ├── edge.yaml
+│   ├── datacenter.yaml
+│   └── default.yaml
+├── src/                             # Main source code
 │   ├── __init__.py
-│   ├── config.py                 # Global configuration settings
-│   ├── profile_loader.py         # Loads/validates company profiles
-│   ├── analyzer/                 # Problem analysis module
+│   ├── config.py                    # Global configuration settings
+│   ├── profile_loader.py            # Loads/validates deployment profiles
+│   ├── analyzer/                    # Problem analysis module
 │   │   ├── __init__.py
-│   │   └── problem_analyzer.py   # Problem characterization & feature extraction
-│   ├── api/                      # REST API layer
+│   │   └── problem_analyzer.py      # Problem characterization & feature extraction
+│   ├── api/                         # REST API layer
 │   │   ├── __init__.py
-│   │   ├── main.py               # FastAPI application entry point
-│   │   └── orchestrator.py       # Job execution orchestrator
-│   ├── monitoring/               # Performance monitoring & metrics
+│   │   ├── main.py                  # FastAPI application entry point
+│   │   └── orchestrator.py          # Job execution orchestrator
+│   ├── backends/                    # Pluggable quantum hardware backends
 │   │   ├── __init__.py
-│   │   ├── metrics_collector.py  # Performance tracking & metrics
-│   │   └── db_manager.py         # Database operations & persistence
-│   ├── problems/                 # Problem type implementations
+│   │   ├── backend_base.py          # QuantumBackend ABC
+│   │   ├── photonic_mock.py         # Photonic mock backend
+│   │   └── photonic_cloud.py        # Cloud API client (real/mock)
+│   ├── monitoring/                  # Performance monitoring & metrics
 │   │   ├── __init__.py
-│   │   ├── problem_base.py       # Abstract problem interface
-│   │   ├── maxcut.py             # Maximum Cut problem
-│   │   ├── tsp.py                # Traveling Salesman Problem
-│   │   └── portfolio.py          # Portfolio optimization
-│   ├── router/                   # Intelligent routing engine
+│   │   ├── metrics_collector.py     # Performance tracking & metrics
+│   │   └── db_manager.py            # Database operations & persistence
+│   ├── problems/                    # Problem type implementations
 │   │   ├── __init__.py
-│   │   ├── quantum_router.py     # Solver selection & routing logic
-│   │   ├── edge_simulator.py     # Edge environment simulation
-│   │   └── datacenter_simulator.py # HPC/data-center environment simulation
-│   └── solvers/                  # Solver implementations
+│   │   ├── problem_base.py          # Abstract problem interface
+│   │   ├── maxcut.py                # Maximum Cut problem
+│   │   ├── tsp.py                   # Traveling Salesman Problem
+│   │   └── portfolio.py             # Portfolio optimization
+│   ├── router/                      # Intelligent routing engine
+│   │   ├── __init__.py
+│   │   ├── quantum_router.py        # Solver selection & routing logic
+│   │   ├── edge_simulator.py        # Edge environment simulation
+│   │   └── datacenter_simulator.py  # HPC/data-center environment simulation
+│   └── solvers/                     # Solver implementations
 │       ├── __init__.py
-│       ├── solver_base.py        # Abstract solver interface
-│       ├── classical_solver.py   # Classical optimization solvers
-│       └── quantum_simulator.py  # Quantum algorithm simulators
-│   └── backends/                 # Pluggable quantum hardware backends
-│       ├── backend_base.py       # QuantumBackend ABC
-│       ├── edge_mock.py          # Photonic mock backend
-│       └── datacenter_cloud.py   # Cloud API client (real/mock)
+│       ├── solver_base.py           # Abstract solver interface
+│       ├── classical_solver.py      # Classical optimization solvers
+│       ├── hybrid_solver.py         # Hybrid classical/quantum strategies
+│       ├── quantum_hardware_interface.py  # Abstract QPU interface
+│       └── quantum_simulator.py     # Quantum algorithm simulators
 │
 ├── examples/
-│   └── scenarios/                # JSON payloads for dashboard demo scenarios
+│   └── scenarios/                   # JSON payloads for dashboard demo scenarios
+│       ├── edge/
+│       └── datacenter/
 │
-├── dashboard/                    # Streamlit web dashboard
-│   ├── app.py                    # Main dashboard application
-│   ├── demo_scenarios.py         # Demo scenario configurations
-│   └── utils.py                  # Visualization & utility functions
+├── dashboard/                       # Streamlit web dashboard
+│   ├── app.py                       # Main dashboard application
+│   ├── demo_scenarios.py            # Demo scenario configurations
+│   └── utils.py                     # Visualization & utility functions
 │
-├── scripts/                      # Utility & setup scripts
-│   ├── benchmark_solvers.py      # Solver performance benchmarking
-│   └── init_db.sql               # Database initialization SQL
+├── scripts/                         # Utility & setup scripts
+│   ├── benchmark_solvers.py         # Solver performance benchmarking
+│   └── init_db.sql                  # Database initialization SQL
 │
-├── tests/                        # Test suite
+├── tests/                           # Test suite
 │   ├── __init__.py
-│   ├── test_analyzer.py          # Problem analyzer tests
-│   ├── test_api.py               # API endpoint tests
-│   ├── test_monitoring.py        # Monitoring & metrics tests
-│   ├── test_problems.py          # Problem implementation tests
-│   ├── test_router.py            # Routing logic tests
-│   └── test_solvers.py           # Solver implementation tests
+│   ├── test_analyzer.py             # Problem analyzer tests
+│   ├── test_api.py                  # API endpoint tests
+│   ├── test_backends.py             # Hardware backend tests
+│   ├── test_datacenter_simulator.py # Datacenter environment tests
+│   ├── test_monitoring.py           # Monitoring & metrics tests
+│   ├── test_problems.py             # Problem implementation tests
+│   ├── test_profiles.py             # Profile loading tests
+│   ├── test_router.py               # Routing logic tests
+│   └── test_solvers.py              # Solver implementation tests
 │
-├── docs/                         # Documentation
-│   ├── api.md                    # API reference documentation
-│   ├── docker-services.md        # Docker services overview
-│   ├── quantum-basics.md         # Quantum computing primer
-│   ├── quickstart.md             # Quick start guide
-│   └── edge-photonic-integration.md   # Edge photonic integration guide
+├── docs/                            # Documentation
+│   ├── api.md                       # API reference documentation
+│   ├── datacenter-integration.md    # Datacenter integration guide
+│   ├── docker-services.md           # Docker services overview
+│   ├── edge-integration.md          # Edge photonic integration guide
+│   ├── quantum-basics.md            # Quantum computing primer
+│   ├── quickstart.md                # Quick start guide
+│   └── usage-examples.md            # API/SDK usage examples
 │
-├── Dockerfile                    # Docker image definition
-├── docker-compose.yml            # Multi-service orchestration
-├── Makefile                      # Development & deployment commands
-├── pyproject.toml                # Poetry project configuration
-├── requirements.txt              # Python dependencies
-├── .env.example                  # Environment variables template
-├── .dockerignore                 # Docker build exclusions
-├── .gitignore                    # Git ignore patterns
-└── README.md                     # This file
+├── .github/workflows/ci.yml         # CI: tests on Python 3.10/3.11
+├── Dockerfile                       # Docker image definition
+├── docker-compose.yml               # Multi-service orchestration
+├── Makefile                         # Development & deployment commands
+├── pyproject.toml                   # Poetry project configuration
+├── poetry.lock                      # Locked Poetry dependencies
+├── requirements.txt                 # Pinned Python dependencies
+├── LICENSE                          # MIT license
+├── .env.example                     # Environment variables template
+├── .dockerignore                    # Docker build exclusions
+├── .gitignore                       # Git ignore patterns
+└── README.md                        # This file
 ```
 
 ### Running Tests
 
+The suite runs on Python 3.10+ and needs no database or quantum hardware:
+external services are mocked.
+
 ```bash
-# Run all unit tests with coverage
+# Local (from the repository root)
+pip install -r requirements.txt
+pip install pytest==8.4.2 pytest-cov==4.1.0 pytest-asyncio==0.23.8
+cp .env.example .env
+pytest -q -o addopts="" --cov=src --cov-report=term-missing
+
+# Or through Docker
 make test
-
-# Run specific test suite
-docker-compose exec api poetry run pytest tests/test_router.py -v
-
-# Run tests with coverage report
 make test-cov
+
+# Run a specific test module
+pytest tests/test_router.py -v -o addopts=""
 ```
 
 ### Running Benchmarks
@@ -711,6 +739,12 @@ energy_photonic = (
 
 ### Database Schema
 
-For detailed schema and indexing strategy, see `database/init.sql`.
+For detailed schema and indexing strategy, see `scripts/init_db.sql`.
 
-**Important Note**: This is a research and development platform designed for evaluation, benchmarking, and integration planning. 
+**Important Note**: This is a research and development platform designed for evaluation, benchmarking, and integration planning.
+
+---
+
+## License
+
+MIT. See [LICENSE](LICENSE).

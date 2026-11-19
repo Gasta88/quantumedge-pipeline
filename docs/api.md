@@ -605,7 +605,8 @@ Use the built-in Swagger UI for interactive API testing:
 
 1. Start the server:
    ```bash
-   cd /home/user/webapp
+   # From the repository root
+   cd quantumedge-pipeline
    uvicorn src.api.main:app --reload
    ```
 
